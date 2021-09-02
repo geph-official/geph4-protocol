@@ -4,9 +4,8 @@ use std::{
     time::Instant,
 };
 
+use bytes::Bytes;
 use geph4_protocol::VpnStdio;
-use sosistab::Buff;
-
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() == 1 {
@@ -23,7 +22,7 @@ fn main() {
         for count in 1.. {
             let pkt = VpnStdio {
                 verb: 0,
-                body: Buff::copy_from_slice(&[0u8; 1500]),
+                body: Bytes::copy_from_slice(&[0u8; 1500]),
             };
             pkt.write_blocking(&mut child_stdin).unwrap();
             VpnStdio::read_blocking(&mut child_stdout).unwrap();

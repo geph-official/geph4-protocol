@@ -1,8 +1,7 @@
 use std::net::Ipv4Addr;
 
+use bytes::{Bytes, BytesMut};
 use serde::{Deserialize, Serialize};
-use sosistab::{Buff, BuffMut};
-
 /// VPN on-the-wire message
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum VpnMessage {
@@ -13,14 +12,14 @@ pub enum VpnMessage {
         client_ip: Ipv4Addr,
         gateway: Ipv4Addr,
     },
-    Payload(Buff),
+    Payload(Bytes),
 }
 
 /// Stdio message
 #[derive(Debug, Clone)]
 pub struct VpnStdio {
     pub verb: u8,
-    pub body: Buff,
+    pub body: Bytes,
 }
 
 impl VpnStdio {
@@ -33,7 +32,7 @@ impl VpnStdio {
         let verb = scratch_space[0];
         reader.read_exact(&mut scratch_space).await?;
         let length = u16::from_le_bytes(scratch_space);
-        let mut bts = BuffMut::new();
+        let mut bts = BytesMut::new();
         bts.resize(length as usize, 0);
         reader.read_exact(&mut bts).await?;
         Ok(VpnStdio {
@@ -49,7 +48,7 @@ impl VpnStdio {
         let verb = scratch_space[0];
         reader.read_exact(&mut scratch_space)?;
         let length = u16::from_le_bytes(scratch_space);
-        let mut bts = BuffMut::new();
+        let mut bts = BytesMut::new();
         bts.resize(length as usize, 0);
         reader.read_exact(&mut bts)?;
         Ok(VpnStdio {
@@ -64,7 +63,7 @@ impl VpnStdio {
         writer: &mut W,
     ) -> std::io::Result<()> {
         use smol::io::AsyncWriteExt;
-        let mut buf = BuffMut::new();
+        let mut buf = Vec::with_capacity(2048);
         buf.write_all(&[self.verb]).await?;
         buf.write_all(&(self.body.len() as u16).to_le_bytes())
             .await?;
@@ -76,7 +75,7 @@ impl VpnStdio {
     /// Write out the StdioMsg, blockingly.
     pub fn write_blocking<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
         use std::io::Write;
-        let mut buf = BuffMut::new();
+        let mut buf = Vec::with_capacity(2048);
         buf.write_all(&[self.verb])?;
         buf.write_all(&(self.body.len() as u16).to_le_bytes())?;
         buf.write_all(&self.body)?;

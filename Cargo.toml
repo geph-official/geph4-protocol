@@ -10,6 +10,6 @@ license="GPL-3.0-only"
 
 [dependencies]
 serde={ version = "1.0.127", features = ["derive"] }
-# bytes={ version = "1.0.1", features = ["serde"] }
+bytes={ version = "1.0.1", features = ["serde"] }
 smol= "1.2.5"
-sosistab= "0.4.4"
+# sosistab= "0.4.4"
