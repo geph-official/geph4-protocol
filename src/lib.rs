@@ -1,7 +1,9 @@
+pub use binder::*;
 use binder::{BinderParams, CachedBinderClient};
 use smol::future::FutureExt;
 use std::time::Duration;
 pub use telemetry::*;
+pub use tunnel::*;
 use tunnel::{Tunnel, TunnelParams};
 pub use vpn::*;
 pub mod binder;
