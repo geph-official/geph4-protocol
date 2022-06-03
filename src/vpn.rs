@@ -1,7 +1,16 @@
-use std::net::Ipv4Addr;
-
+use crate::tunnel::activity::notify_activity;
+use anyhow::Context;
 use bytes::{Bytes, BytesMut};
 use serde::{Deserialize, Serialize};
+use smol_timeout::TimeoutExt;
+use sosistab::{Buff, BuffMut};
+use std::net::Ipv4Addr;
+use std::{
+    ops::DerefMut,
+    sync::{atomic::AtomicU32, Arc},
+    time::Duration,
+};
+
 /// VPN on-the-wire message
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum VpnMessage {
@@ -82,4 +91,62 @@ impl VpnStdio {
         writer.write_all(&buf)?;
         Ok(())
     }
+}
+
+pub struct Vpn {
+    mux: Arc<sosistab::Multiplex>,
+    client_ip: Ipv4Addr,
+}
+
+pub static EXTERNAL_FAKE_IP_U32: AtomicU32 = AtomicU32::new(0);
+
+impl Vpn {
+    // negotiates new VPN
+    pub async fn new(mux: Arc<sosistab::Multiplex>) -> anyhow::Result<Vpn> {
+        // first, we negotiate the vpn
+        let client_id: u128 = rand::random();
+        log::info!("negotiating VPN with client id {}...", client_id);
+        let client_ip = loop {
+            let hello = VpnMessage::ClientHello { client_id };
+            mux.send_urel(bincode::serialize(&hello)?.as_slice())
+                .await?;
+            let resp = mux.recv_urel().timeout(Duration::from_secs(1)).await;
+            if let Some(resp) = resp {
+                let resp = resp?;
+                let resp: VpnMessage = bincode::deserialize(&resp)?;
+                match resp {
+                    VpnMessage::ServerHello { client_ip, .. } => break client_ip,
+                    _ => continue,
+                }
+            }
+        };
+        log::info!("negotiated IP address {}!", client_ip);
+
+        Ok(Vpn {
+            mux: mux.clone(),
+            client_ip: client_ip,
+        })
+    }
+
+    pub async fn send_vpn_pkt(&self, bts: Bytes) -> anyhow::Result<()> {
+        notify_activity();
+
+        self.mux
+            .send_urel(serialize(&VpnMessage::Payload(bts)))
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn recv_vpn_pkt(&self) -> anyhow::Result<Bytes> {
+        let bts = self.mux.recv_urel().await.context("downstream failed")?;
+
+        bincode::deserialize(&bts).context("invalid downstream data")
+    }
+}
+
+pub fn serialize<T: Serialize>(val: &T) -> Buff {
+    let mut bmut = BuffMut::new();
+    bincode::serialize_into(bmut.deref_mut(), val).unwrap();
+    bmut.freeze()
 }
