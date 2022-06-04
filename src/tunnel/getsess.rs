@@ -1,4 +1,4 @@
-use super::{protosess::ProtoSession, ConnectionOptions, TunnelCtx};
+use super::{protosess::ProtoSession, EndpointSource, TunnelCtx};
 use anyhow::Context;
 use async_net::SocketAddr;
 use futures_util::stream::FuturesUnordered;
@@ -58,7 +58,7 @@ pub async fn get_session(
     bias_for: Option<SocketAddr>,
 ) -> anyhow::Result<ProtoSession> {
     match &ctx.endpoint {
-        ConnectionOptions::Independent { endpoint } => {
+        EndpointSource::Independent { endpoint } => {
             // parse endpoint addr
             let pk_and_url = endpoint.split('@').collect::<Vec<_>>();
             let server_pk = x25519_dalek::PublicKey::from(
@@ -75,12 +75,12 @@ pub async fn get_session(
                 .context("cannot parse host:port")?;
 
             Ok(ProtoSession {
-                inner: if ctx.use_tcp {
+                inner: if ctx.options.use_tcp {
                     sosistab_tcp(
                         server_addr,
                         server_pk,
-                        ctx.tcp_shard_count,
-                        Duration::from_secs(ctx.tcp_shard_lifetime),
+                        ctx.options.tcp_shard_count,
+                        Duration::from_secs(ctx.options.tcp_shard_lifetime),
                         ctx.tunnel_stats.stats_gatherer,
                     )
                     .connect()
@@ -92,8 +92,8 @@ pub async fn get_session(
 
                     for _ in 0..TRY_COUNT {
                         let ctx = ctx.clone();
-                        let udp_shard_count = ctx.udp_shard_count;
-                        let udp_shard_lifetime = ctx.udp_shard_lifetime;
+                        let udp_shard_count = ctx.options.udp_shard_count;
+                        let udp_shard_lifetime = ctx.options.udp_shard_lifetime;
 
                         racer.push(async move {
                             Ok::<_, anyhow::Error>(
@@ -118,7 +118,7 @@ pub async fn get_session(
                 remote_addr: server_addr,
             })
         }
-        ConnectionOptions::Binder(binder_tunnel_params) => {
+        EndpointSource::Binder(binder_tunnel_params) => {
             let selected_exit = binder_tunnel_params
                 .ccache
                 .get_closest_exit(binder_tunnel_params.exit_server.clone())
@@ -193,20 +193,20 @@ pub async fn get_one_sess(
     let tcp_fut = sosistab_tcp(
         addr,
         pubkey,
-        ctx.tcp_shard_count,
-        Duration::from_secs(ctx.tcp_shard_lifetime),
+        ctx.options.tcp_shard_count,
+        Duration::from_secs(ctx.options.tcp_shard_lifetime),
         ctx.tunnel_stats.stats_gatherer,
     )
     .connect();
-    if !ctx.use_tcp {
+    if !ctx.options.use_tcp {
         Ok(geph4_aioutils::try_race(
             async {
                 let ctx = ctx1.clone();
                 let sess = sosistab_udp(
                     addr,
                     pubkey,
-                    ctx.udp_shard_count,
-                    Duration::from_secs(ctx.udp_shard_lifetime),
+                    ctx.options.udp_shard_count,
+                    Duration::from_secs(ctx.options.udp_shard_lifetime),
                     ctx.tunnel_stats.stats_gatherer,
                 )
                 .connect()
@@ -234,7 +234,7 @@ pub async fn get_through_fastest_bridge(
 ) -> anyhow::Result<ProtoSession> {
     let ctx1 = ctx.clone();
 
-    if let ConnectionOptions::Binder(binder_tunnel_params) = ctx.endpoint {
+    if let EndpointSource::Binder(binder_tunnel_params) = ctx.endpoint {
         let mut bridges = binder_tunnel_params
             .ccache
             .get_bridges(&selected_exit.hostname, binder_tunnel_params.sticky_bridges)

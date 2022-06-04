@@ -4,7 +4,7 @@ use super::{
     activity::{notify_activity, wait_activity},
     getsess::get_session,
     reroute::rerouter_once,
-    ConnectionOptions, TunnelCtx, TunnelState,
+    EndpointSource, TunnelCtx, TunnelState,
 };
 use anyhow::Context;
 // use parking_lot::RwLock;
@@ -33,7 +33,7 @@ async fn tunnel_actor_once(ctx: TunnelCtx) -> anyhow::Result<()> {
     let protosess_remaddr = protosess.remote_addr();
     let tunnel_mux = Arc::new(protosess.multiplex());
 
-    if let ConnectionOptions::Binder(binder_tunnel_params) = ctx.endpoint {
+    if let EndpointSource::Binder(binder_tunnel_params) = ctx.endpoint {
         // authenticate
         let token = binder_tunnel_params.ccache.get_auth_token().await?;
         authenticate_session(&tunnel_mux, &token)
