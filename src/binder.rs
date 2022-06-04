@@ -137,29 +137,41 @@ impl CachedBinderClient {
     }
 
     /// Gets a list of bridges.
-    pub async fn get_bridges(&self, exit_hostname: &str) -> anyhow::Result<Vec<BridgeDescriptor>> {
+    pub async fn get_bridges(
+        &self,
+        exit_hostname: &str,
+        sticky_bridges: bool,
+    ) -> anyhow::Result<Vec<BridgeDescriptor>> {
         let tok = self.get_auth_token().await?;
         let binder_client = self.binder_client.clone();
         let exit_hostname = exit_hostname.to_string();
-        self.get_cached_maybe_stale(
-            &format!("cache.bridges.{}", exit_hostname),
-            async {
-                let res = timeout(binder_client.request(BinderRequestData::GetBridges {
-                    level: tok.level,
-                    unblinded_digest: tok.unblinded_digest,
-                    unblinded_signature: tok.unblinded_signature,
-                    exit_hostname,
-                }))
-                .await??;
-                if let BinderResponse::GetBridgesResp(bridges) = res {
-                    Ok(bridges)
-                } else {
-                    anyhow::bail!("invalid response")
-                }
-            },
-            Duration::from_secs(300),
-        )
-        .await
+        if sticky_bridges {
+            let res = self.get_cached_stale(&format!("cache.bridges.{}", exit_hostname));
+            match res {
+                Some(bridges) => Ok(bridges),
+                None => anyhow::bail!("no bridges!!!"),
+            }
+        } else {
+            self.get_cached_maybe_stale(
+                &format!("cache.bridges.{}", exit_hostname),
+                async {
+                    let res = timeout(binder_client.request(BinderRequestData::GetBridges {
+                        level: tok.level,
+                        unblinded_digest: tok.unblinded_digest,
+                        unblinded_signature: tok.unblinded_signature,
+                        exit_hostname,
+                    }))
+                    .await??;
+                    if let BinderResponse::GetBridgesResp(bridges) = res {
+                        Ok(bridges)
+                    } else {
+                        anyhow::bail!("invalid response")
+                    }
+                },
+                Duration::from_secs(300),
+            )
+            .await
+        }
     }
 
     pub async fn get_current_bridges(&self, exit_hostname: &str) -> Option<Vec<BridgeDescriptor>> {

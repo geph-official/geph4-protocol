@@ -22,18 +22,6 @@ use crate::binder::CachedBinderClient;
 use async_net::Ipv4Addr;
 use sosistab::Multiplex;
 
-// What we need to start a sosistab Session
-#[derive(Clone)]
-pub struct TunnelParams {
-    pub udp_shard_count: usize,
-    pub udp_shard_lifetime: u64,
-    pub tcp_shard_count: usize,
-    pub tcp_shard_lifetime: u64,
-    pub use_tcp: bool,
-
-    pub endpoint: ConnectionOptions,
-}
-
 #[derive(Clone)]
 pub enum ConnectionOptions {
     Independent { endpoint: String },
@@ -43,9 +31,7 @@ pub enum ConnectionOptions {
 #[derive(Clone)]
 pub struct BinderTunnelParams {
     pub ccache: Arc<CachedBinderClient>,
-
     pub exit_server: String,
-
     pub use_bridges: bool,
     pub force_bridge: Option<Ipv4Addr>,
     pub sticky_bridges: bool,
@@ -65,7 +51,13 @@ pub struct TunnelStats {
 
 #[derive(Clone)]
 pub struct TunnelCtx {
-    pub params: TunnelParams,
+    pub udp_shard_count: usize,
+    pub udp_shard_lifetime: u64,
+    pub tcp_shard_count: usize,
+    pub tcp_shard_lifetime: u64,
+    pub use_tcp: bool,
+    pub endpoint: ConnectionOptions,
+
     pub recv_socks5_conn: Receiver<(String, Sender<sosistab::RelConn>)>,
     pub current_state: Arc<RwLock<TunnelState>>,
     pub tunnel_stats: TunnelStats,
@@ -82,7 +74,14 @@ pub struct ClientTunnel {
 }
 
 impl ClientTunnel {
-    pub async fn new(params: TunnelParams) -> anyhow::Result<Self> {
+    pub async fn new(
+        udp_shard_count: usize,
+        udp_shard_lifetime: u64,
+        tcp_shard_count: usize,
+        tcp_shard_lifetime: u64,
+        use_tcp: bool,
+        endpoint: ConnectionOptions,
+    ) -> anyhow::Result<Self> {
         let (send, recv) = smol::channel::unbounded();
         let current_state = Arc::new(RwLock::new(TunnelState::Connecting));
 
@@ -93,7 +92,12 @@ impl ClientTunnel {
             last_ping_ms,
         };
         let task = Arc::new(smolscale::spawn(tunnel_actor(TunnelCtx {
-            params,
+            udp_shard_count,
+            udp_shard_lifetime,
+            tcp_shard_count,
+            tcp_shard_lifetime,
+            use_tcp,
+            endpoint,
             recv_socks5_conn: recv,
             current_state: current_state.clone(),
             tunnel_stats: tunnel_stats.clone(),
