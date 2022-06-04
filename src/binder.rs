@@ -1,4 +1,6 @@
+use acidjson::AcidJson;
 use anyhow::Context;
+use bytes::Bytes;
 use futures_util::Future;
 use geph4_binder_transport::{
     BinderClient, BinderError, BinderRequestData, BinderResponse, BridgeDescriptor, ExitDescriptor,
@@ -12,6 +14,7 @@ use sha2::Sha256;
 use smol::future::FutureExt;
 use smol_timeout::TimeoutExt;
 use std::{
+    collections::BTreeMap,
     fmt::Debug,
     str::from_utf8,
     sync::Arc,
@@ -33,7 +36,7 @@ pub struct Token {
 
 #[derive(Clone)]
 pub struct NetworkSummary {
-    pub auth_token: UserInfo,
+    pub user_info: UserInfo,
     pub exits: Vec<ExitDescriptor>,
     pub exits_free: Vec<ExitDescriptor>,
 }
@@ -56,12 +59,12 @@ pub struct CachedBinderClient {
 
 #[derive(Clone)]
 pub struct BinderParams {
-    underlying: Arc<dyn BinderClient + 'static>,
-    cache: Arc<dyn Cache + 'static>,
-    binder_mizaru_free_pk: mizaru::PublicKey,
-    binder_mizaru_plus_pk: mizaru::PublicKey,
-    username: String,
-    password: String,
+    pub underlying: Arc<dyn BinderClient + 'static>,
+    pub cache: Arc<dyn Cache + 'static>,
+    pub binder_mizaru_free_pk: mizaru::PublicKey,
+    pub binder_mizaru_plus_pk: mizaru::PublicKey,
+    pub username: String,
+    pub password: String,
 }
 
 // public methods
@@ -87,7 +90,7 @@ impl CachedBinderClient {
         let exits_free = exec.spawn(self.get_free_exits());
         exec.run(async move {
             let ns = NetworkSummary {
-                auth_token: atok.user_info,
+                user_info: atok.user_info,
                 exits: exits.await?,
                 exits_free: exits_free.await?,
             };
@@ -186,61 +189,6 @@ impl CachedBinderClient {
     pub fn purge_all(&self) -> anyhow::Result<()> {
         self.ccache.clear_all();
         Ok(())
-    }
-
-    pub async fn handle_register(&self, mut req: Request) -> http_types::Result<Response> {
-        let binder_client = self.binder_client.clone();
-        if req.method() != Method::Post {
-            return Ok("".into());
-        }
-        #[derive(Serialize, Deserialize, Debug)]
-        struct Req {
-            #[serde(rename = "Username")]
-            username: String,
-            #[serde(rename = "Password")]
-            password: String,
-            #[serde(rename = "CaptchaID")]
-            captcha_id: String,
-            #[serde(rename = "CaptchaSoln")]
-            captcha_soln: String,
-        }
-        let request: Req = smol::future::block_on(req.take_body().into_json())?;
-        match binder_client
-            .request(BinderRequestData::RegisterUser {
-                username: request.username,
-                password: request.password,
-                captcha_id: request.captcha_id,
-                captcha_soln: request.captcha_soln,
-            })
-            .timeout(TIMEOUT)
-            .await
-        {
-            Some(Ok(_)) => Ok(Response::new(200)),
-            Some(Err(BinderError::WrongCaptcha)) => Ok(Response::new(422)),
-            Some(Err(BinderError::UserAlreadyExists)) => Ok(Response::new(409)),
-            _ => Ok(Response::new(500)),
-        }
-    }
-
-    pub async fn handle_captcha(&self, _req: Request) -> http_types::Result<Response> {
-        let binder_client = self.binder_client.clone();
-        match binder_client
-            .request(BinderRequestData::GetCaptcha)
-            .timeout(TIMEOUT)
-            .await
-        {
-            Some(Ok(BinderResponse::GetCaptchaResp {
-                captcha_id,
-                png_data,
-            })) => {
-                let mut resp = Response::new(200);
-                resp.insert_header("Content-Type", "image/png");
-                resp.insert_header("x-captcha-id", captcha_id);
-                resp.set_body(png_data);
-                Ok(resp)
-            }
-            _ => Ok(Response::new(500)),
-        }
     }
 }
 
@@ -409,4 +357,22 @@ async fn timeout<T, F: Future<Output = T>>(fut: F) -> anyhow::Result<T> {
     fut.timeout(NETWORK_TIMEOUT)
         .await
         .ok_or_else(|| anyhow::anyhow!("timeout"))
+}
+
+impl Cache for AcidJson<BTreeMap<String, Bytes>> {
+    fn get(&self, key: &[u8]) -> Option<Vec<u8>> {
+        todo!()
+    }
+
+    fn insert(&self, key: Vec<u8>, value: Vec<u8>) {
+        todo!()
+    }
+
+    fn remove(&self, key: &[u8]) {
+        todo!()
+    }
+
+    fn clear_all(&self) {
+        todo!()
+    }
 }

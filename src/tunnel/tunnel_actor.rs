@@ -176,7 +176,7 @@ async fn watchdog_loop(
                         .open_conn(Some("!telemetry".into()))
                         .timeout(Duration::from_secs(10))
                         .await
-                        .context("wtf")??;
+                        .context("what just happened...")??;
                     telemetry_conn
                         .write_all(
                             format!("{}\n", serde_json::to_string(&telemetry).unwrap()).as_bytes(),

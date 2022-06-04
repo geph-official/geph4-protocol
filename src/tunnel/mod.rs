@@ -1,7 +1,10 @@
 use crate::vpn::Vpn;
 use parking_lot::RwLock;
-use smol::channel::{Receiver, Sender};
-use sosistab::RelConn;
+use smol::{
+    channel::{Receiver, Sender},
+    future::FutureExt,
+};
+use sosistab::{RelConn, TimeSeries};
 use std::{
     sync::{
         atomic::{AtomicU32, Ordering},
@@ -71,14 +74,14 @@ pub struct TunnelCtx {
 /// A tunnel starts and keeps alive the best sosistab session it can under given constraints.
 /// A sosistab Session is *a single end-to-end connection between a client and a server.*
 /// This can be thought of as analogous to TcpStream, except all reads and writes are datagram-based and unreliable.
-pub struct Tunnel {
+pub struct ClientTunnel {
     current_state: Arc<RwLock<TunnelState>>,
     open_socks5_conn: Sender<(String, Sender<sosistab::RelConn>)>,
     tunnel_stats: TunnelStats,
     _task: Arc<smol::Task<anyhow::Result<()>>>,
 }
 
-impl Tunnel {
+impl ClientTunnel {
     pub async fn new(params: TunnelParams) -> anyhow::Result<Self> {
         let (send, recv) = smol::channel::unbounded();
         let current_state = Arc::new(RwLock::new(TunnelState::Connecting));
@@ -95,7 +98,7 @@ impl Tunnel {
             current_state: current_state.clone(),
             tunnel_stats: tunnel_stats.clone(),
         })));
-        Ok(Tunnel {
+        Ok(ClientTunnel {
             current_state: current_state.clone(),
             open_socks5_conn: send,
             tunnel_stats: tunnel_stats.clone(),
@@ -109,6 +112,26 @@ impl Tunnel {
             .send((remote.to_string(), send))
             .await?;
         Ok(recv.recv().await?)
+    }
+    /// Returns a connected tunnel
+    pub async fn return_connected(&self) -> anyhow::Result<()> {
+        async {
+            loop {
+                match self.current_state().clone() {
+                    TunnelState::Connecting => {
+                        smol::Timer::after(Duration::from_secs(1)).await;
+                    }
+                    TunnelState::Connected { mux: _ } => return Ok(()),
+                }
+            }
+        }
+        .or({
+            async {
+                smol::Timer::after(Duration::from_secs(10)).await;
+                anyhow::bail!("could not start tunnel")
+            }
+        })
+        .await
     }
 
     pub async fn start_vpn(&self) -> anyhow::Result<Vpn> {
@@ -126,36 +149,42 @@ impl Tunnel {
         self.current_state.read().clone()
     }
 
+    pub fn is_connected(&self) -> bool {
+        match self.current_state() {
+            TunnelState::Connecting => false,
+            TunnelState::Connected { mux: _ } => true,
+        }
+    }
+
     pub async fn get_stats(&self) -> Stats {
-        let total_sent_bytes = self
-            .tunnel_stats
-            .stats_gatherer
-            .get_last("total_sent_bytes")
-            .unwrap_or_default();
-        let total_recv_bytes = self
-            .tunnel_stats
-            .stats_gatherer
-            .get_last("total_recv_bytes")
-            .unwrap_or_default();
-        let latency = self.tunnel_stats.last_ping_ms.load(Ordering::Relaxed) as f32;
-        let loss = self
-            .tunnel_stats
-            .stats_gatherer
-            .get_last("recv_loss")
-            .unwrap_or_default();
+        let gatherer = self.tunnel_stats.stats_gatherer.clone();
 
         Stats {
-            total_sent_bytes,
-            total_recv_bytes,
-            latency,
-            loss,
+            sent_series: gatherer
+                .get_timeseries("total_sent_bytes")
+                .unwrap_or_default(),
+            recv_series: gatherer
+                .get_timeseries("total_sent_bytes")
+                .unwrap_or_default(),
+            loss_series: gatherer.get_timeseries("recv_loss").unwrap_or_default(),
+            ping_series: gatherer.get_timeseries("smooth_ping").unwrap_or_default(),
+
+            total_sent_bytes: gatherer.get_last("total_sent_bytes").unwrap_or_default(),
+            total_recv_bytes: gatherer.get_last("total_recv_bytes").unwrap_or_default(),
+            last_loss: gatherer.get_last("recv_loss").unwrap_or_default(),
+            last_ping: self.tunnel_stats.last_ping_ms.load(Ordering::Relaxed) as f32,
         }
     }
 }
 
 pub struct Stats {
-    total_sent_bytes: f32,
-    total_recv_bytes: f32,
-    latency: f32,
-    loss: f32,
+    pub sent_series: TimeSeries,
+    pub recv_series: TimeSeries,
+    pub loss_series: TimeSeries,
+    pub ping_series: TimeSeries,
+
+    pub total_sent_bytes: f32,
+    pub total_recv_bytes: f32,
+    pub last_loss: f32,
+    pub last_ping: f32, // latency
 }

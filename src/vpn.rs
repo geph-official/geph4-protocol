@@ -93,9 +93,10 @@ impl VpnStdio {
     }
 }
 
+#[derive(Clone)]
 pub struct Vpn {
-    mux: Arc<sosistab::Multiplex>,
-    client_ip: Ipv4Addr,
+    pub mux: Arc<sosistab::Multiplex>,
+    pub client_ip: Ipv4Addr,
 }
 
 pub static EXTERNAL_FAKE_IP_U32: AtomicU32 = AtomicU32::new(0);
