@@ -19,8 +19,9 @@ pub mod protosess;
 pub mod reroute;
 pub mod tunnel_actor;
 use crate::binder::CachedBinderClient;
-use async_net::Ipv4Addr;
+pub use getsess::ipv4_addr_from_hostname;
 use sosistab::Multiplex;
+use std::net::Ipv4Addr;
 
 #[derive(Clone)]
 pub enum EndpointSource {
@@ -71,6 +72,7 @@ pub struct TunnelCtx {
 /// A sosistab Session is *a single end-to-end connection between a client and a server.*
 /// This can be thought of as analogous to TcpStream, except all reads and writes are datagram-based and unreliable.
 pub struct ClientTunnel {
+    endpoint: EndpointSource,
     current_state: Arc<RwLock<TunnelState>>,
     open_socks5_conn: Sender<(String, Sender<sosistab::RelConn>)>,
     tunnel_stats: TunnelStats,
@@ -88,14 +90,17 @@ impl ClientTunnel {
             stats_gatherer,
             last_ping_ms,
         };
-        let task = Arc::new(smolscale::spawn(tunnel_actor(TunnelCtx {
+        let ctx = TunnelCtx {
             options,
-            endpoint,
+            endpoint: endpoint.clone(),
             recv_socks5_conn: recv,
             current_state: current_state.clone(),
             tunnel_stats: tunnel_stats.clone(),
-        })));
+        };
+        let task = Arc::new(smolscale::spawn(tunnel_actor(ctx.clone())));
+
         Ok(ClientTunnel {
+            endpoint,
             current_state: current_state.clone(),
             open_socks5_conn: send,
             tunnel_stats: tunnel_stats.clone(),
@@ -151,6 +156,10 @@ impl ClientTunnel {
             TunnelState::Connecting => false,
             TunnelState::Connected { mux: _ } => true,
         }
+    }
+
+    pub fn get_endpoint(&self) -> EndpointSource {
+        self.endpoint.clone()
     }
 
     pub async fn get_stats(&self) -> Stats {

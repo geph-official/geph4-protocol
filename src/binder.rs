@@ -6,7 +6,7 @@ use geph4_binder_transport::{
     BinderClient, BinderError, BinderRequestData, BinderResponse, BridgeDescriptor, ExitDescriptor,
     UserInfo,
 };
-use http_types::{convert::DeserializeOwned, Method, Request, Response};
+use http_types::convert::DeserializeOwned;
 use rand::Rng;
 use rsa_fdh::blind;
 use serde::{Deserialize, Serialize};
@@ -16,7 +16,6 @@ use smol_timeout::TimeoutExt;
 use std::{
     collections::BTreeMap,
     fmt::Debug,
-    str::from_utf8,
     sync::Arc,
     time::{Duration, SystemTime},
 };
@@ -42,9 +41,9 @@ pub struct NetworkSummary {
 }
 
 pub trait Cache: Send + Sync {
-    fn get(&self, key: &[u8]) -> Option<Vec<u8>>;
-    fn insert(&self, key: Vec<u8>, value: Vec<u8>);
-    fn remove(&self, key: &[u8]);
+    fn get(&self, key: &str) -> Option<Vec<u8>>;
+    fn insert(&self, key: String, value: Vec<u8>);
+    fn remove(&self, key: &str);
     fn clear_all(&self);
 }
 
@@ -339,25 +338,21 @@ impl CachedBinderClient {
             .as_secs();
         log::debug!("refreshing from binder for {}", key);
         let fresh = fallback.await?;
-        log::trace!(
-            "fallback resolved for {}! ({:?})",
-            from_utf8(&expanded_key)?,
-            fresh
-        );
+        log::trace!("fallback resolved for {}! ({:?})", expanded_key, fresh);
 
         // save to disk
         self.ccache.insert(
-            expanded_key.to_vec(),
+            expanded_key.clone(),
             bincode::serialize(&(fresh.clone(), create_time))
                 .unwrap()
                 .into(),
         );
-        log::trace!("about to return for {}!", from_utf8(&expanded_key)?);
+        log::trace!("about to return for {}!", expanded_key);
         Ok(fresh)
     }
 
-    fn to_key(&self, key: &str) -> Vec<u8> {
-        format!("{}-{}", key, self.username).as_bytes().to_vec()
+    fn to_key(&self, key: &str) -> String {
+        format!("{}-{}", key, self.username)
     }
 }
 
@@ -368,19 +363,22 @@ async fn timeout<T, F: Future<Output = T>>(fut: F) -> anyhow::Result<T> {
 }
 
 impl Cache for AcidJson<BTreeMap<String, Bytes>> {
-    fn get(&self, key: &[u8]) -> Option<Vec<u8>> {
-        todo!()
+    fn get(&self, key: &str) -> Option<Vec<u8>> {
+        self.read()
+            .get(key)
+            .map(|v| bincode::deserialize(v).unwrap())
     }
 
-    fn insert(&self, key: Vec<u8>, value: Vec<u8>) {
-        todo!()
+    fn insert(&self, key: String, value: Vec<u8>) {
+        self.write()
+            .insert(key, bincode::serialize(&value).unwrap().into());
     }
 
-    fn remove(&self, key: &[u8]) {
-        todo!()
+    fn remove(&self, key: &str) {
+        self.write().remove(key);
     }
 
     fn clear_all(&self) {
-        todo!()
+        self.write().clear();
     }
 }

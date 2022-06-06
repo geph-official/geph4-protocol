@@ -1,4 +1,3 @@
-use crate::tunnel::activity::notify_activity;
 use anyhow::Context;
 use bytes::{Bytes, BytesMut};
 use serde::{Deserialize, Serialize};
@@ -10,6 +9,8 @@ use std::{
     sync::{atomic::AtomicU32, Arc},
     time::Duration,
 };
+
+use crate::activity::notify_activity;
 
 /// VPN on-the-wire message
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -98,8 +99,6 @@ pub struct Vpn {
     pub mux: Arc<sosistab::Multiplex>,
     pub client_ip: Ipv4Addr,
 }
-
-pub static EXTERNAL_FAKE_IP_U32: AtomicU32 = AtomicU32::new(0);
 
 impl Vpn {
     // negotiates new VPN

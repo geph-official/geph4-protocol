@@ -53,27 +53,42 @@ pub fn sosistab_tcp(
     })
 }
 
+pub fn parse_independent_endpoint(
+    endpoint: &String,
+) -> anyhow::Result<(SocketAddr, x25519_dalek::PublicKey)> {
+    // parse endpoint addr
+    let pk_and_url = endpoint.split('@').collect::<Vec<_>>();
+    let server_pk = x25519_dalek::PublicKey::from(
+        <[u8; 32]>::try_from(
+            hex::decode(&pk_and_url.get(0).context("URL not in form PK@host:port")?)
+                .context("PK is not hex")?,
+        )
+        .unwrap(),
+    );
+    let server_addr: SocketAddr = pk_and_url
+        .get(1)
+        .context("URL not in form PK@host:port")?
+        .parse()
+        .context("cannot parse host:port")?;
+    return Ok((server_addr, server_pk));
+}
+
+pub async fn ipv4_addr_from_hostname(hostname: String) -> anyhow::Result<SocketAddr> {
+    geph4_aioutils::resolve(&format!("{}:19831", hostname))
+        .await
+        .context("can't resolve hostname of exit")?
+        .into_iter()
+        .find(|v| v.is_ipv4())
+        .context("can't find ipv4 address for exit")
+}
+
 pub async fn get_session(
     ctx: TunnelCtx,
     bias_for: Option<SocketAddr>,
 ) -> anyhow::Result<ProtoSession> {
     match &ctx.endpoint {
         EndpointSource::Independent { endpoint } => {
-            // parse endpoint addr
-            let pk_and_url = endpoint.split('@').collect::<Vec<_>>();
-            let server_pk = x25519_dalek::PublicKey::from(
-                <[u8; 32]>::try_from(
-                    hex::decode(&pk_and_url.get(0).context("URL not in form PK@host:port")?)
-                        .context("PK is not hex")?,
-                )
-                .unwrap(),
-            );
-            let server_addr: SocketAddr = pk_and_url
-                .get(1)
-                .context("URL not in form PK@host:port")?
-                .parse()
-                .context("cannot parse host:port")?;
-
+            let (server_addr, server_pk) = parse_independent_endpoint(endpoint)?;
             Ok(ProtoSession {
                 inner: if ctx.options.use_tcp {
                     sosistab_tcp(
@@ -133,16 +148,8 @@ pub async fn get_session(
                 } else {
                     geph4_aioutils::try_race(
                         async {
-                            let server_addr = geph4_aioutils::resolve(&format!(
-                                "{}:19831",
-                                selected_exit.hostname
-                            ))
-                            .await
-                            .context("can't resolve hostname of exit")?
-                            .into_iter()
-                            .find(|v| v.is_ipv4())
-                            .context("can't find ipv4 address for exit")?;
-
+                            let server_addr =
+                                ipv4_addr_from_hostname(selected_exit.hostname.clone()).await?;
                             Ok(ProtoSession {
                                 inner: get_one_sess(
                                     ctx.clone(),

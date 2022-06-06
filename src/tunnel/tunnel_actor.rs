@@ -1,10 +1,10 @@
-use crate::Telemetry;
+use crate::{EndpointSource, Telemetry};
 
 use super::{
     activity::{notify_activity, wait_activity},
     getsess::get_session,
     reroute::rerouter_once,
-    EndpointSource, TunnelCtx, TunnelState,
+    TunnelCtx, TunnelState,
 };
 use anyhow::Context;
 // use parking_lot::RwLock;
@@ -176,7 +176,7 @@ async fn watchdog_loop(
                         .open_conn(Some("!telemetry".into()))
                         .timeout(Duration::from_secs(10))
                         .await
-                        .context("what just happened...")??;
+                        .context("wtf")??;
                     telemetry_conn
                         .write_all(
                             format!("{}\n", serde_json::to_string(&telemetry).unwrap()).as_bytes(),
