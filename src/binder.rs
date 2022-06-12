@@ -22,7 +22,7 @@ use std::{
 
 static STALE_TIMEOUT: Duration = Duration::from_secs(3);
 static NETWORK_TIMEOUT: Duration = Duration::from_secs(120);
-const TIMEOUT: Duration = Duration::from_secs(10);
+// const TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Token {
@@ -318,11 +318,16 @@ impl CachedBinderClient {
             .get(&expanded_key)
             .map(|v| bincode::deserialize(v.as_slice()).unwrap());
         if let Some((existing, create_time)) = existing {
+            let expire_time = if ttl.as_secs() == u64::MAX {
+                ttl.as_secs()
+            } else {
+                create_time + ttl.as_secs()
+            };
             if SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
                 .as_secs()
-                < create_time + ttl.as_secs()
+                < expire_time
             {
                 return Ok(existing);
             } else {

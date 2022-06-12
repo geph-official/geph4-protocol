@@ -98,6 +98,7 @@ impl ClientTunnel {
             tunnel_stats: tunnel_stats.clone(),
         };
         let task = Arc::new(smolscale::spawn(tunnel_actor(ctx.clone())));
+        // let task = Arc::new(smolscale::spawn(smol::future::pending()));
 
         Ok(ClientTunnel {
             endpoint,

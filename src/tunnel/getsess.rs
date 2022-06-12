@@ -74,18 +74,25 @@ pub fn parse_independent_endpoint(
 }
 
 pub async fn ipv4_addr_from_hostname(hostname: String) -> anyhow::Result<SocketAddr> {
-    geph4_aioutils::resolve(&format!("{}:19831", hostname))
+    eprintln!("Hey getting ipv4 addr from hostname!");
+    let res = geph4_aioutils::resolve(&format!("{}:19831", hostname))
         .await
         .context("can't resolve hostname of exit")?
         .into_iter()
         .find(|v| v.is_ipv4())
-        .context("can't find ipv4 address for exit")
+        .context("can't find ipv4 address for exit")?;
+
+    eprintln!("Sheepai! The addr: {:?}", res);
+
+    Ok(res)
 }
 
 pub async fn get_session(
     ctx: TunnelCtx,
     bias_for: Option<SocketAddr>,
 ) -> anyhow::Result<ProtoSession> {
+    eprintln!("HAHAHA STARTING GET_SESSION");
+
     match &ctx.endpoint {
         EndpointSource::Independent { endpoint } => {
             let (server_addr, server_pk) = parse_independent_endpoint(endpoint)?;
@@ -138,7 +145,7 @@ pub async fn get_session(
                 .ccache
                 .get_closest_exit(binder_tunnel_params.exit_server.clone())
                 .await?;
-
+            eprintln!("GOT CLOSEST EXIT! ^_^");
             let bridge_sess_async =
                 get_through_fastest_bridge(ctx.clone(), selected_exit.clone(), bias_for);
 
@@ -146,8 +153,10 @@ pub async fn get_session(
                 if binder_tunnel_params.use_bridges {
                     bridge_sess_async.await
                 } else {
+                    eprintln!("Not using bridges!!! /---\\");
                     geph4_aioutils::try_race(
                         async {
+                            eprintln!("Yo new future just dropped");
                             let server_addr =
                                 ipv4_addr_from_hostname(selected_exit.hostname.clone()).await?;
                             Ok(ProtoSession {
@@ -174,6 +183,7 @@ pub async fn get_session(
 
             Ok(connected_sess_async
                 .or(async {
+                    eprintln!("Racing! Oh yeah!");
                     smol::Timer::after(Duration::from_secs(40)).await;
                     anyhow::bail!("initial connection timeout after 40");
                 })
@@ -197,6 +207,8 @@ pub async fn get_one_sess(
     pubkey: x25519_dalek::PublicKey,
 ) -> anyhow::Result<Session> {
     let ctx1 = ctx.clone();
+    eprintln!("GETTING ONE SESSION!!! YIPEE");
+
     let tcp_fut = sosistab_tcp(
         addr,
         pubkey,
@@ -220,12 +232,14 @@ pub async fn get_one_sess(
                 .await?;
                 log::info!("connected to UDP for {}", addr);
                 Ok(sess)
-            },
+            }
+            .boxed(),
             async {
                 smol::Timer::after(Duration::from_secs(2)).await;
                 log::warn!("switching to TCP for {}!", addr);
                 tcp_fut.await
-            },
+            }
+            .boxed(),
         )
         .await?)
     } else {

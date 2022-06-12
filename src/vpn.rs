@@ -4,11 +4,7 @@ use serde::{Deserialize, Serialize};
 use smol_timeout::TimeoutExt;
 use sosistab::{Buff, BuffMut};
 use std::net::Ipv4Addr;
-use std::{
-    ops::DerefMut,
-    sync::{atomic::AtomicU32, Arc},
-    time::Duration,
-};
+use std::{ops::DerefMut, sync::Arc, time::Duration};
 
 use crate::activity::notify_activity;
 
