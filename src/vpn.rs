@@ -124,17 +124,15 @@ impl Vpn {
         })
     }
 
-    pub async fn send_vpn_pkt(&self, bts: Bytes) -> anyhow::Result<()> {
+    pub async fn send_vpn(&self, msg: VpnMessage) -> anyhow::Result<()> {
         notify_activity();
 
-        self.mux
-            .send_urel(serialize(&VpnMessage::Payload(bts)))
-            .await?;
+        self.mux.send_urel(serialize(&msg)).await?;
 
         Ok(())
     }
 
-    pub async fn recv_vpn_pkt(&self) -> anyhow::Result<Bytes> {
+    pub async fn recv_vpn(&self) -> anyhow::Result<VpnMessage> {
         let bts = self.mux.recv_urel().await.context("downstream failed")?;
 
         bincode::deserialize(&bts).context("invalid downstream data")
