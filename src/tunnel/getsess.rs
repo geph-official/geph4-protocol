@@ -54,7 +54,7 @@ pub fn sosistab_tcp(
 }
 
 pub fn parse_independent_endpoint(
-    endpoint: &String,
+    endpoint: &str,
 ) -> anyhow::Result<(SocketAddr, x25519_dalek::PublicKey)> {
     // parse endpoint addr
     let pk_and_url = endpoint.split('@').collect::<Vec<_>>();
@@ -70,7 +70,7 @@ pub fn parse_independent_endpoint(
         .context("URL not in form PK@host:port")?
         .parse()
         .context("cannot parse host:port")?;
-    return Ok((server_addr, server_pk));
+    Ok((server_addr, server_pk))
 }
 
 pub async fn ipv4_addr_from_hostname(hostname: String) -> anyhow::Result<SocketAddr> {

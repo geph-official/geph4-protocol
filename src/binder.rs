@@ -348,9 +348,7 @@ impl CachedBinderClient {
         // save to disk
         self.ccache.insert(
             expanded_key.clone(),
-            bincode::serialize(&(fresh.clone(), create_time))
-                .unwrap()
-                .into(),
+            bincode::serialize(&(fresh.clone(), create_time)).unwrap(),
         );
         log::trace!("about to return for {}!", expanded_key);
         Ok(fresh)
