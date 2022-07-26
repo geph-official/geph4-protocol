@@ -120,7 +120,7 @@ impl Vpn {
 
         Ok(Vpn {
             mux: mux.clone(),
-            client_ip: client_ip,
+            client_ip,
         })
     }
 

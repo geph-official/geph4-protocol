@@ -316,7 +316,7 @@ impl CachedBinderClient {
         let existing: Option<(T, u64)> = self
             .ccache
             .get(&expanded_key)
-            .map(|v| bincode::deserialize(v.as_slice()).unwrap());
+            .and_then(|v| bincode::deserialize(v.as_slice()).ok());
         if let Some((existing, create_time)) = existing {
             let expire_time = if ttl.as_secs() == u64::MAX {
                 ttl.as_secs()
@@ -348,9 +348,7 @@ impl CachedBinderClient {
         // save to disk
         self.ccache.insert(
             expanded_key.clone(),
-            bincode::serialize(&(fresh.clone(), create_time))
-                .unwrap()
-                .into(),
+            bincode::serialize(&(fresh.clone(), create_time)).unwrap(),
         );
         log::trace!("about to return for {}!", expanded_key);
         Ok(fresh)
@@ -371,7 +369,7 @@ impl Cache for AcidJson<BTreeMap<String, Bytes>> {
     fn get(&self, key: &str) -> Option<Vec<u8>> {
         self.read()
             .get(key)
-            .map(|v| bincode::deserialize(v).unwrap())
+            .and_then(|v| bincode::deserialize(v).ok())
     }
 
     fn insert(&self, key: String, value: Vec<u8>) {

@@ -97,14 +97,14 @@ impl ClientTunnel {
             current_state: current_state.clone(),
             tunnel_stats: tunnel_stats.clone(),
         };
-        let task = Arc::new(smolscale::spawn(tunnel_actor(ctx.clone())));
+        let task = Arc::new(smolscale::spawn(tunnel_actor(ctx)));
         // let task = Arc::new(smolscale::spawn(smol::future::pending()));
 
         Ok(ClientTunnel {
             endpoint,
-            current_state: current_state.clone(),
+            current_state,
             open_socks5_conn: send,
-            tunnel_stats: tunnel_stats.clone(),
+            tunnel_stats,
             _task: task,
         })
     }
