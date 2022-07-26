@@ -1,6 +1,6 @@
 [package]
 name = "geph4-protocol"
-version = "0.2.1-alpha.0"
+version = "0.3.0"
 authors = ["nullchinchilla <nullchinchilla@pm.me>"]
 edition = "2018"
 description="geph4 protocol helpers"
@@ -36,10 +36,11 @@ sha2 = "0.9.8"
 smol= "1.2.5"
 smolscale= "0.3.16"
 smol-timeout = "0.6.0"
-#sosistab={path="/home/thisbefruit/sosistab"}
+#sosistab={path="../sosistab"}
 strsim = "0.10.0"
 tap= "1.0.1"
 
 x25519-dalek={ version = "1.1.1", features = ["serde"] }
+sosistab = "0.4.45"
 
-sosistab= "0.4.4"
+# sosistab= "0.4.4"
