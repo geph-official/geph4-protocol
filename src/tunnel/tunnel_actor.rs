@@ -1,17 +1,25 @@
-use crate::{EndpointSource, Telemetry};
+use crate::{serialize, EndpointSource, Telemetry, VpnMessage};
 
 use super::{
     activity::{notify_activity, wait_activity},
     getsess::get_session,
     reroute::rerouter_once,
-    TunnelCtx, TunnelState,
+    TunnelCtx,
 };
 use anyhow::Context;
 // use parking_lot::RwLock;
-use smol::{channel::Sender, prelude::*};
+use smol::{
+    channel::{Receiver, Sender},
+    prelude::*,
+};
 use smol_timeout::TimeoutExt;
 use sosistab::Multiplex;
-use std::{net::SocketAddr, sync::Arc, time::Duration, time::Instant};
+use std::{
+    net::SocketAddr,
+    sync::{atomic::Ordering, Arc},
+    time::Duration,
+    time::Instant,
+};
 
 /// Background task of a TunnelManager
 pub async fn tunnel_actor(ctx: TunnelCtx) -> anyhow::Result<()> {
@@ -26,7 +34,7 @@ pub async fn tunnel_actor(ctx: TunnelCtx) -> anyhow::Result<()> {
 
 async fn tunnel_actor_once(ctx: TunnelCtx) -> anyhow::Result<()> {
     let ctx1 = ctx.clone();
-    *ctx.current_state.write() = TunnelState::Connecting;
+    ctx.current_state.store(0, Ordering::Relaxed);
     notify_activity();
 
     let protosess = get_session(ctx.clone(), None).await?;
@@ -42,10 +50,29 @@ async fn tunnel_actor_once(ctx: TunnelCtx) -> anyhow::Result<()> {
             .ok_or_else(|| anyhow::anyhow!("authentication timed out"))??;
     }
 
-    log::info!("TUNNEL_MANAGER MAIN LOOP through {}", protosess_remaddr);
-    *ctx.current_state.write() = TunnelState::Connected {
-        mux: tunnel_mux.clone(),
+    // negotiate vpn
+    let client_id: u128 = rand::random();
+    log::info!("negotiating VPN with client id {}...", client_id);
+    let vpn_client_ip = loop {
+        let hello = VpnMessage::ClientHello { client_id };
+        tunnel_mux
+            .send_urel(bincode::serialize(&hello)?.as_slice())
+            .await?;
+        let resp = tunnel_mux.recv_urel().timeout(Duration::from_secs(1)).await;
+        if let Some(resp) = resp {
+            let resp = resp?;
+            let resp: VpnMessage = bincode::deserialize(&resp)?;
+            match resp {
+                VpnMessage::ServerHello { client_ip, .. } => break client_ip,
+                _ => continue,
+            }
+        }
     };
+    log::info!("negotiated IP address {}!", vpn_client_ip);
+    log::info!("TUNNEL_ACTOR MAIN LOOP through {}", protosess_remaddr);
+
+    ctx.current_state
+        .store(vpn_client_ip.into(), Ordering::Relaxed);
 
     let (send_death, recv_death) = smol::channel::unbounded();
 
@@ -60,6 +87,8 @@ async fn tunnel_actor_once(ctx: TunnelCtx) -> anyhow::Result<()> {
             protosess_remaddr,
             tunnel_mux.clone(),
         ))
+        .or(vpn_up_loop(tunnel_mux.clone(), ctx.recv_vpn_outgoing))
+        .or(vpn_down_loop(tunnel_mux, ctx.send_vpn_incoming))
         .await
 }
 
@@ -82,6 +111,28 @@ async fn authenticate_session(
     log::debug!("sent auth info!");
     let _: u8 = geph4_aioutils::read_pascalish(&mut auth_conn).await?;
     Ok(())
+}
+
+async fn vpn_up_loop(
+    mux: Arc<Multiplex>,
+    recv_outgoing: Receiver<VpnMessage>,
+) -> anyhow::Result<()> {
+    loop {
+        if let Ok(msg) = recv_outgoing.recv().await {
+            mux.send_urel(serialize(&msg)).await?;
+        }
+    }
+}
+
+async fn vpn_down_loop(
+    mux: Arc<Multiplex>,
+    send_incoming: Sender<VpnMessage>,
+) -> anyhow::Result<()> {
+    loop {
+        let bts = mux.recv_urel().await.context("downstream failed")?;
+        let msg = bincode::deserialize(&bts).context("invalid downstream data")?;
+        send_incoming.try_send(msg)?;
+    }
 }
 
 // handles socks5 connection requests
@@ -169,7 +220,7 @@ async fn watchdog_loop(
                 smolscale::spawn(async move {
                     let telemetry = Telemetry {
                         watchdog_ping_ms: ping.as_millis() as _,
-                        version: version.replace(".", "-"),
+                        version: version.replace('.', "-"),
                     };
                     log::debug!("** sending telemetry: {:?} **", telemetry);
                     let mut telemetry_conn = tunnel_mux

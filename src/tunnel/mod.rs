@@ -1,5 +1,5 @@
-use crate::vpn::Vpn;
-use parking_lot::RwLock;
+use crate::VpnMessage;
+
 use smol::{
     channel::{Receiver, Sender},
     future::FutureExt,
@@ -20,8 +20,9 @@ pub mod reroute;
 pub mod tunnel_actor;
 use crate::binder::CachedBinderClient;
 pub use getsess::ipv4_addr_from_hostname;
-use sosistab::Multiplex;
 use std::net::Ipv4Addr;
+
+use self::activity::notify_activity;
 
 #[derive(Clone)]
 pub enum EndpointSource {
@@ -36,12 +37,6 @@ pub struct BinderTunnelParams {
     pub use_bridges: bool,
     pub force_bridge: Option<Ipv4Addr>,
     pub sticky_bridges: bool,
-}
-
-#[derive(Clone)]
-pub enum TunnelState {
-    Connecting,
-    Connected { mux: Arc<Multiplex> },
 }
 
 #[derive(Clone)]
@@ -64,8 +59,10 @@ pub struct TunnelCtx {
     pub options: ConnectionOptions,
     pub endpoint: EndpointSource,
     pub recv_socks5_conn: Receiver<(String, Sender<sosistab::RelConn>)>,
-    pub current_state: Arc<RwLock<TunnelState>>,
+    pub current_state: Arc<AtomicU32>,
     pub tunnel_stats: TunnelStats,
+    recv_vpn_outgoing: Receiver<VpnMessage>,
+    send_vpn_incoming: Sender<VpnMessage>,
 }
 
 /// A tunnel starts and keeps alive the best sosistab session it can under given constraints.
@@ -73,7 +70,11 @@ pub struct TunnelCtx {
 /// This can be thought of as analogous to TcpStream, except all reads and writes are datagram-based and unreliable.
 pub struct ClientTunnel {
     endpoint: EndpointSource,
-    current_state: Arc<RwLock<TunnelState>>,
+    current_state: Arc<AtomicU32>,
+
+    send_vpn_outgoing: Sender<VpnMessage>,
+    recv_vpn_incoming: Receiver<VpnMessage>,
+
     open_socks5_conn: Sender<(String, Sender<sosistab::RelConn>)>,
     tunnel_stats: TunnelStats,
     _task: Arc<smol::Task<anyhow::Result<()>>>,
@@ -81,8 +82,10 @@ pub struct ClientTunnel {
 
 impl ClientTunnel {
     pub async fn new(options: ConnectionOptions, endpoint: EndpointSource) -> anyhow::Result<Self> {
-        let (send, recv) = smol::channel::unbounded();
-        let current_state = Arc::new(RwLock::new(TunnelState::Connecting));
+        let (send_socks5, recv_socks5) = smol::channel::unbounded();
+        let (send_outgoing, recv_outgoing) = smol::channel::bounded(10000);
+        let (send_incoming, recv_incoming) = smol::channel::bounded(10000);
+        let current_state = Arc::new(AtomicU32::new(0));
 
         let stats_gatherer = Arc::new(sosistab::StatsGatherer::new_active());
         let last_ping_ms = Arc::new(AtomicU32::new(0));
@@ -93,9 +96,11 @@ impl ClientTunnel {
         let ctx = TunnelCtx {
             options,
             endpoint: endpoint.clone(),
-            recv_socks5_conn: recv,
+            recv_socks5_conn: recv_socks5,
             current_state: current_state.clone(),
             tunnel_stats: tunnel_stats.clone(),
+            send_vpn_incoming: send_incoming,
+            recv_vpn_outgoing: recv_outgoing,
         };
         let task = Arc::new(smolscale::spawn(tunnel_actor(ctx)));
         // let task = Arc::new(smolscale::spawn(smol::future::pending()));
@@ -103,7 +108,9 @@ impl ClientTunnel {
         Ok(ClientTunnel {
             endpoint,
             current_state,
-            open_socks5_conn: send,
+            send_vpn_outgoing: send_outgoing,
+            recv_vpn_incoming: recv_incoming,
+            open_socks5_conn: send_socks5,
             tunnel_stats,
             _task: task,
         })
@@ -117,14 +124,14 @@ impl ClientTunnel {
         Ok(recv.recv().await?)
     }
     /// Returns a connected tunnel
-    pub async fn return_connected(&self) -> anyhow::Result<()> {
+    pub async fn return_connected(&self) -> anyhow::Result<Ipv4Addr> {
         async {
             loop {
-                match self.current_state().clone() {
-                    TunnelState::Connecting => {
+                match self.get_vpn_client_ip() {
+                    Some(ip) => return Ok(ip),
+                    None => {
                         smol::Timer::after(Duration::from_secs(1)).await;
                     }
-                    TunnelState::Connected { mux: _ } => return Ok(()),
                 }
             }
         }
@@ -137,25 +144,23 @@ impl ClientTunnel {
         .await
     }
 
-    pub async fn start_vpn(&self) -> anyhow::Result<Vpn> {
-        loop {
-            match self.current_state() {
-                TunnelState::Connecting => {
-                    smol::Timer::after(Duration::from_secs(1)).await;
-                }
-                TunnelState::Connected { mux } => return Vpn::new(mux).await,
-            }
-        }
+    pub async fn send_vpn(&self, msg: VpnMessage) -> anyhow::Result<()> {
+        notify_activity();
+        self.send_vpn_outgoing.send(msg).await?;
+        Ok(())
     }
 
-    pub fn current_state(&self) -> TunnelState {
-        self.current_state.read().clone()
+    pub async fn recv_vpn(&self) -> anyhow::Result<VpnMessage> {
+        let msg = self.recv_vpn_incoming.recv().await?;
+        Ok(msg)
     }
 
-    pub fn is_connected(&self) -> bool {
-        match self.current_state() {
-            TunnelState::Connecting => false,
-            TunnelState::Connected { mux: _ } => true,
+    pub fn get_vpn_client_ip(&self) -> Option<Ipv4Addr> {
+        let current_state = self.current_state.load(Ordering::Relaxed);
+        if current_state == 0 {
+            None
+        } else {
+            Some(Ipv4Addr::from(current_state))
         }
     }
 

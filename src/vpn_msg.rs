@@ -1,12 +1,8 @@
-use anyhow::Context;
 use bytes::{Bytes, BytesMut};
 use serde::{Deserialize, Serialize};
-use smol_timeout::TimeoutExt;
 use sosistab::{Buff, BuffMut};
 use std::net::Ipv4Addr;
-use std::{ops::DerefMut, sync::Arc, time::Duration};
-
-use crate::activity::notify_activity;
+use std::ops::DerefMut;
 
 /// VPN on-the-wire message
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -87,55 +83,6 @@ impl VpnStdio {
         buf.write_all(&self.body)?;
         writer.write_all(&buf)?;
         Ok(())
-    }
-}
-
-#[derive(Clone)]
-pub struct Vpn {
-    pub mux: Arc<sosistab::Multiplex>,
-    pub client_ip: Ipv4Addr,
-}
-
-impl Vpn {
-    // negotiates new VPN
-    pub async fn new(mux: Arc<sosistab::Multiplex>) -> anyhow::Result<Vpn> {
-        // first, we negotiate the vpn
-        let client_id: u128 = rand::random();
-        log::info!("negotiating VPN with client id {}...", client_id);
-        let client_ip = loop {
-            let hello = VpnMessage::ClientHello { client_id };
-            mux.send_urel(bincode::serialize(&hello)?.as_slice())
-                .await?;
-            let resp = mux.recv_urel().timeout(Duration::from_secs(1)).await;
-            if let Some(resp) = resp {
-                let resp = resp?;
-                let resp: VpnMessage = bincode::deserialize(&resp)?;
-                match resp {
-                    VpnMessage::ServerHello { client_ip, .. } => break client_ip,
-                    _ => continue,
-                }
-            }
-        };
-        log::info!("negotiated IP address {}!", client_ip);
-
-        Ok(Vpn {
-            mux: mux.clone(),
-            client_ip,
-        })
-    }
-
-    pub async fn send_vpn(&self, msg: VpnMessage) -> anyhow::Result<()> {
-        notify_activity();
-
-        self.mux.send_urel(serialize(&msg)).await?;
-
-        Ok(())
-    }
-
-    pub async fn recv_vpn(&self) -> anyhow::Result<VpnMessage> {
-        let bts = self.mux.recv_urel().await.context("downstream failed")?;
-
-        bincode::deserialize(&bts).context("invalid downstream data")
     }
 }
 
