@@ -154,11 +154,11 @@ async fn connection_handler_loop(
             let remote = (&mux).open_conn(Some(conn_host.clone())).await;
             match remote {
                 Ok(remote) => {
-                    log::debug!(
-                        "opened connection to {} in {} ms",
-                        conn_host,
-                        start.elapsed().as_millis(),
-                    );
+                    // log::debug!(
+                    //     "opened connection to {} in {} ms",
+                    //     conn_host,
+                    //     start.elapsed().as_millis(),
+                    // );
 
                     conn_reply.send(remote).await.context("conn_reply failed")?;
                     Ok::<(), anyhow::Error>(())

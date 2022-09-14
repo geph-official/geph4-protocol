@@ -135,12 +135,6 @@ impl ClientTunnel {
                 }
             }
         }
-        .or({
-            async {
-                smol::Timer::after(Duration::from_secs(10)).await;
-                anyhow::bail!("could not start tunnel")
-            }
-        })
         .await
     }
 
