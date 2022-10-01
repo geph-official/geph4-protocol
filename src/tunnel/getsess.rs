@@ -1,8 +1,9 @@
+use crate::binder::protocol::ExitDescriptor;
+
 use super::{protosess::ProtoSession, EndpointSource, TunnelCtx};
 use anyhow::Context;
 use async_net::SocketAddr;
 use futures_util::stream::FuturesUnordered;
-use geph4_binder_transport::ExitDescriptor;
 use smol::prelude::*;
 use smol_timeout::TimeoutExt;
 use sosistab::Session;

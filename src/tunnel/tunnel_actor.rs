@@ -1,4 +1,4 @@
-use crate::{serialize, EndpointSource, Telemetry, VpnMessage};
+use crate::{binder::protocol::BlindToken, serialize, EndpointSource, Telemetry, VpnMessage};
 
 use super::{
     activity::{notify_activity, wait_activity},
@@ -95,7 +95,7 @@ async fn tunnel_actor_once(ctx: TunnelCtx) -> anyhow::Result<()> {
 /// authenticates a muxed session
 async fn authenticate_session(
     session: &sosistab::Multiplex,
-    token: &crate::binder::Token,
+    token: &BlindToken,
 ) -> anyhow::Result<()> {
     let mut auth_conn = session.open_conn(None).await?;
     log::debug!("sending auth info...");
