@@ -88,7 +88,7 @@ impl CachedBinderClient {
     }
 
     /// Obtains an authentication token.
-    async fn get_auth_token(&self) -> anyhow::Result<BlindToken> {
+    pub async fn get_auth_token(&self) -> anyhow::Result<BlindToken> {
         if let Some(auth_token) = (self.load_cache)("auth_token") {
             if let Ok(auth_token) = serde_json::from_slice(&auth_token) {
                 return Ok(auth_token);

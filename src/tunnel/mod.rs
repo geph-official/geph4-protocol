@@ -1,4 +1,4 @@
-use crate::VpnMessage;
+use crate::{binder::client::CachedBinderClient, VpnMessage};
 
 use smol::channel::{Receiver, Sender};
 use sosistab::{RelConn, TimeSeries};

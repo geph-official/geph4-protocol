@@ -224,6 +224,7 @@ pub struct ExitDescriptor {
     pub country_code: String,
     pub city_code: String,
     pub direct_routes: Vec<BridgeDescriptor>,
+    pub legacy_direct_sosistab_pk: x25519_dalek::PublicKey,
     pub allowed_levels: Vec<Level>,
 }
 

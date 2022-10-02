@@ -63,7 +63,7 @@ pub fn parse_independent_endpoint(
     let pk_and_url = endpoint.split('@').collect::<Vec<_>>();
     let server_pk = x25519_dalek::PublicKey::from(
         <[u8; 32]>::try_from(
-            hex::decode(&pk_and_url.get(0).context("URL not in form PK@host:port")?)
+            hex::decode(&pk_and_url.first().context("URL not in form PK@host:port")?)
                 .context("PK is not hex")?,
         )
         .unwrap(),
@@ -76,9 +76,9 @@ pub fn parse_independent_endpoint(
     Ok((server_addr, server_pk))
 }
 
-pub async fn ipv4_addr_from_hostname(hostname: String) -> anyhow::Result<SocketAddr> {
+pub async fn ipv4_addr_from_hostname(hostname: &str) -> anyhow::Result<SocketAddr> {
     // eprintln!("getting ipv4 addr from hostname!");
-    let res = geph4_aioutils::resolve(&format!("{}:19831", hostname))
+    let res = smol::net::resolve(&format!("{}:19831", hostname))
         .await
         .context("can't resolve hostname of exit")?
         .into_iter()
@@ -142,7 +142,7 @@ pub async fn get_session(
         EndpointSource::Binder(binder_tunnel_params) => {
             let selected_exit = binder_tunnel_params
                 .ccache
-                .get_closest_exit(binder_tunnel_params.exit_server.clone())
+                .get_closest_exit(&binder_tunnel_params.exit_server)
                 .await?;
             // eprintln!("GOT CLOSEST EXIT!");
             let bridge_sess_async =
@@ -155,12 +155,12 @@ pub async fn get_session(
                     geph4_aioutils::try_race(
                         async {
                             let server_addr =
-                                ipv4_addr_from_hostname(selected_exit.hostname.clone()).await?;
+                                ipv4_addr_from_hostname(&selected_exit.hostname).await?;
                             Ok(ProtoSession {
                                 inner: get_one_sess(
                                     ctx.clone(),
                                     server_addr,
-                                    selected_exit.sosistab_key,
+                                    selected_exit.legacy_direct_sosistab_pk,
                                 )
                                 .await?,
                                 remote_addr: server_addr,
@@ -185,11 +185,8 @@ pub async fn get_session(
                 })
                 .await
                 .tap(|x| {
-                    if x.is_err() {
-                        log::warn!("** purging bridges **");
-                        let _ = binder_tunnel_params
-                            .ccache
-                            .purge_bridges(&selected_exit.hostname);
+                    if let Err(err) = x {
+                        log::warn!("error connecting: {:?}", err)
                     }
                 })?)
         }
@@ -253,7 +250,7 @@ pub async fn get_through_fastest_bridge(
     if let EndpointSource::Binder(binder_tunnel_params) = ctx.endpoint {
         let mut bridges = binder_tunnel_params
             .ccache
-            .get_bridges(&selected_exit.hostname, binder_tunnel_params.sticky_bridges)
+            .get_bridges(&selected_exit.hostname)
             .await
             .context("can't get bridges")?;
         log::debug!("got {} bridges", bridges.len());
