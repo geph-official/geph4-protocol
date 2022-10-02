@@ -213,6 +213,7 @@ pub struct BridgeDescriptor {
     pub sosistab_key: x25519_dalek::PublicKey,
     pub exit_hostname: SmolStr,
     pub alloc_group: SmolStr,
+    pub update_time: u64,
     #[serde_as(as = "serde_with::base64::Base64")]
     pub exit_signature: Bytes,
 }
