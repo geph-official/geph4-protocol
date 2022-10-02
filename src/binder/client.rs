@@ -98,10 +98,7 @@ impl CachedBinderClient {
         for level in [Level::Free, Level::Plus] {
             let mizaru_pk = self.get_mizaru_pk(level).await?;
             let epoch = mizaru::time_to_epoch(SystemTime::now()) as u16;
-            let (subkey, proof) = self.inner.get_mizaru_epoch_key(level, epoch).await?;
-            if !mizaru_pk.verify_member(epoch as _, &subkey, &proof) {
-                anyhow::bail!("merkle verification for subkey failed")
-            }
+            let subkey = self.inner.get_mizaru_epoch_key(level, epoch).await?;
             let digest = rsa_fdh::blind::hash_message::<sha2::Sha256, _>(&subkey, &digest).unwrap();
             let (blinded_digest, unblinder) =
                 rsa_fdh::blind::blind(&mut rand::thread_rng(), &subkey, &digest);
@@ -122,7 +119,9 @@ impl CachedBinderClient {
             let blind_signature: mizaru::BlindedSignature =
                 bincode::deserialize(&resp.blind_signature_bincode)?;
             let unblinded_signature = blind_signature.unblind(&unblinder);
-            if !mizaru_pk.blind_verify(&digest, &unblinded_signature) {
+            if unblinded_signature.epoch != epoch as usize
+                || !mizaru_pk.blind_verify(&digest, &unblinded_signature)
+            {
                 anyhow::bail!("an invalid signature was given by the binder")
             }
             let tok = BlindToken {

@@ -104,11 +104,7 @@ pub trait BinderProtocol {
     async fn get_mizaru_pk(&self, level: Level) -> mizaru::PublicKey;
 
     /// Obtains a Mizaru epoch key.
-    async fn get_mizaru_epoch_key(
-        &self,
-        level: Level,
-        epoch: u16,
-    ) -> (rsa::RSAPublicKey, Vec<[u8; 32]>);
+    async fn get_mizaru_epoch_key(&self, level: Level, epoch: u16) -> rsa::RSAPublicKey;
 }
 /// Authentication request
 #[derive(Serialize, Deserialize)]
