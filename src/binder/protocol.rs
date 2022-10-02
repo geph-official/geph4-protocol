@@ -153,7 +153,7 @@ pub enum RegisterError {
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct UserInfo {
     pub userid: i32,
-    pub username: String,
+    pub username: SmolStr,
     pub subscription: Option<SubscriptionInfo>,
 }
 
@@ -219,8 +219,8 @@ pub struct BridgeDescriptor {
 pub struct ExitDescriptor {
     pub hostname: SmolStr,
     pub signing_key: ed25519_dalek::PublicKey,
-    pub country_code: String,
-    pub city_code: String,
+    pub country_code: SmolStr,
+    pub city_code: SmolStr,
     pub direct_routes: Vec<BridgeDescriptor>,
     pub legacy_direct_sosistab_pk: x25519_dalek::PublicKey,
     pub allowed_levels: Vec<Level>,
