@@ -98,7 +98,17 @@ pub trait BinderProtocol {
     async fn get_summary(&self) -> MasterSummary;
 
     /// Obtains a list of bridges.
-    async fn get_bridges(&self, token: BlindToken) -> Vec<BridgeDescriptor>;
+    async fn get_bridges(&self, token: BlindToken, exit: SmolStr) -> Vec<BridgeDescriptor>;
+
+    /// Obtains the Mizaru long-term key.
+    async fn get_mizaru_pk(&self, level: Level) -> mizaru::PublicKey;
+
+    /// Obtains a Mizaru epoch key.
+    async fn get_mizaru_epoch_key(
+        &self,
+        level: Level,
+        epoch: u16,
+    ) -> (rsa::RSAPublicKey, Vec<[u8; 32]>);
 }
 /// Authentication request
 #[derive(Serialize, Deserialize)]
@@ -128,6 +138,8 @@ pub enum AuthError {
     InvalidUsernameOrPassword,
     #[error("too many requests")]
     TooManyRequests,
+    #[error("level wrong")]
+    WrongLevel,
     #[error("other error: {0}")]
     Other(SmolStr),
 }
