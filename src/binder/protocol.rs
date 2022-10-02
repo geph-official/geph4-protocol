@@ -185,9 +185,9 @@ pub struct BlindToken {
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug, Hash)]
 #[serde_as]
 pub struct Captcha {
-    captcha_id: SmolStr,
+    pub captcha_id: SmolStr,
     #[serde_as(as = "serde_with::base64::Base64")]
-    png_data: Bytes,
+    pub png_data: Bytes,
 }
 
 /// A miscellaneous, "dynamically typed" fatal error
