@@ -21,7 +21,6 @@ pub fn sosistab_udp(
     reset_interval: Duration,
     stats_gatherer: Arc<sosistab::StatsGatherer>,
 ) -> sosistab::ClientConfig {
-    log::debug!("UDP!");
     sosistab::ClientConfig::new(
         sosistab::Protocol::DirectUdp,
         server_addr,
@@ -42,7 +41,6 @@ pub fn sosistab_tcp(
     reset_interval: Duration,
     stats_gatherer: Arc<sosistab::StatsGatherer>,
 ) -> sosistab::ClientConfig {
-    log::debug!("TCP!");
     sosistab::ClientConfig::new(
         sosistab::Protocol::DirectTcp,
         server_addr,
