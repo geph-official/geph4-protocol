@@ -1,9 +1,6 @@
-use crate::VpnMessage;
+use crate::{binder::client::CachedBinderClient, VpnMessage};
 
-use smol::{
-    channel::{Receiver, Sender},
-    future::FutureExt,
-};
+use smol::channel::{Receiver, Sender};
 use sosistab::{RelConn, TimeSeries};
 use std::{
     sync::{
@@ -18,7 +15,6 @@ pub mod getsess;
 pub mod protosess;
 pub mod reroute;
 pub mod tunnel_actor;
-use crate::binder::CachedBinderClient;
 pub use getsess::ipv4_addr_from_hostname;
 use std::net::Ipv4Addr;
 

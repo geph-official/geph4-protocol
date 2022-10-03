@@ -1,4 +1,6 @@
-use crate::{serialize, EndpointSource, Telemetry, VpnMessage};
+use crate::{
+    binder::protocol::BlindToken, serialize, tunnel::EndpointSource, Telemetry, VpnMessage,
+};
 
 use super::{
     activity::{notify_activity, wait_activity},
@@ -7,6 +9,7 @@ use super::{
     TunnelCtx,
 };
 use anyhow::Context;
+use mizaru::UnblindedSignature;
 // use parking_lot::RwLock;
 use smol::{
     channel::{Receiver, Sender},
@@ -95,7 +98,7 @@ async fn tunnel_actor_once(ctx: TunnelCtx) -> anyhow::Result<()> {
 /// authenticates a muxed session
 async fn authenticate_session(
     session: &sosistab::Multiplex,
-    token: &crate::binder::Token,
+    token: &BlindToken,
 ) -> anyhow::Result<()> {
     let mut auth_conn = session.open_conn(None).await?;
     log::debug!("sending auth info...");
@@ -103,7 +106,7 @@ async fn authenticate_session(
         &mut auth_conn,
         &(
             &token.unblinded_digest,
-            &token.unblinded_signature,
+            &bincode::deserialize::<UnblindedSignature>(&token.unblinded_signature_bincode)?,
             &token.level,
         ),
     )
