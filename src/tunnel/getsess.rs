@@ -138,10 +138,17 @@ pub async fn get_session(
             })
         }
         EndpointSource::Binder(binder_tunnel_params) => {
-            let selected_exit = binder_tunnel_params
-                .ccache
-                .get_closest_exit(&binder_tunnel_params.exit_server)
-                .await?;
+            let selected_exit = if let Some(exit_server) = &binder_tunnel_params.exit_server {
+                binder_tunnel_params
+                    .ccache
+                    .get_closest_exit(exit_server)
+                    .await?
+            } else {
+                let mut exits = binder_tunnel_params.ccache.get_summary().await?.exits;
+                let token = binder_tunnel_params.ccache.get_auth_token().await?;
+                exits.retain(|e| e.allowed_levels.contains(&token.level));
+                exits[fastrand::usize(0..exits.len())].clone()
+            };
             // eprintln!("GOT CLOSEST EXIT!");
             let bridge_sess_async =
                 get_through_fastest_bridge(ctx.clone(), selected_exit.clone(), bias_for);

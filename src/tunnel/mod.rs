@@ -13,7 +13,6 @@ use tunnel_actor::tunnel_actor;
 pub mod activity;
 pub mod getsess;
 pub mod protosess;
-pub mod reroute;
 pub mod tunnel_actor;
 pub use getsess::ipv4_addr_from_hostname;
 use std::net::Ipv4Addr;
@@ -29,10 +28,9 @@ pub enum EndpointSource {
 #[derive(Clone)]
 pub struct BinderTunnelParams {
     pub ccache: Arc<CachedBinderClient>,
-    pub exit_server: String,
+    pub exit_server: Option<String>,
     pub use_bridges: bool,
     pub force_bridge: Option<Ipv4Addr>,
-    pub sticky_bridges: bool,
 }
 
 #[derive(Clone)]
@@ -55,7 +53,7 @@ pub struct TunnelCtx {
     pub options: ConnectionOptions,
     pub endpoint: EndpointSource,
     pub recv_socks5_conn: Receiver<(String, Sender<sosistab::RelConn>)>,
-    pub current_state: Arc<AtomicU32>,
+    pub vpn_client_ip: Arc<AtomicU32>,
     pub tunnel_stats: TunnelStats,
     recv_vpn_outgoing: Receiver<VpnMessage>,
     send_vpn_incoming: Sender<VpnMessage>,
@@ -66,7 +64,7 @@ pub struct TunnelCtx {
 /// This can be thought of as analogous to TcpStream, except all reads and writes are datagram-based and unreliable.
 pub struct ClientTunnel {
     endpoint: EndpointSource,
-    current_state: Arc<AtomicU32>,
+    client_ip_addr: Arc<AtomicU32>,
 
     send_vpn_outgoing: Sender<VpnMessage>,
     recv_vpn_incoming: Receiver<VpnMessage>,
@@ -77,7 +75,7 @@ pub struct ClientTunnel {
 }
 
 impl ClientTunnel {
-    pub async fn new(options: ConnectionOptions, endpoint: EndpointSource) -> anyhow::Result<Self> {
+    pub fn new(options: ConnectionOptions, endpoint: EndpointSource) -> Self {
         let (send_socks5, recv_socks5) = smol::channel::unbounded();
         let (send_outgoing, recv_outgoing) = smol::channel::bounded(10000);
         let (send_incoming, recv_incoming) = smol::channel::bounded(10000);
@@ -93,7 +91,7 @@ impl ClientTunnel {
             options,
             endpoint: endpoint.clone(),
             recv_socks5_conn: recv_socks5,
-            current_state: current_state.clone(),
+            vpn_client_ip: current_state.clone(),
             tunnel_stats: tunnel_stats.clone(),
             send_vpn_incoming: send_incoming,
             recv_vpn_outgoing: recv_outgoing,
@@ -101,15 +99,15 @@ impl ClientTunnel {
         let task = Arc::new(smolscale::spawn(tunnel_actor(ctx)));
         // let task = Arc::new(smolscale::spawn(smol::future::pending()));
 
-        Ok(ClientTunnel {
+        ClientTunnel {
             endpoint,
-            current_state,
+            client_ip_addr: current_state,
             send_vpn_outgoing: send_outgoing,
             recv_vpn_incoming: recv_incoming,
             open_socks5_conn: send_socks5,
             tunnel_stats,
             _task: task,
-        })
+        }
     }
 
     pub async fn connect(&self, remote: &str) -> anyhow::Result<RelConn> {
@@ -118,20 +116,6 @@ impl ClientTunnel {
             .send((remote.to_string(), send))
             .await?;
         Ok(recv.recv().await?)
-    }
-    /// Returns a connected tunnel
-    pub async fn return_connected(&self) -> anyhow::Result<Ipv4Addr> {
-        async {
-            loop {
-                match self.get_vpn_client_ip() {
-                    Some(ip) => return Ok(ip),
-                    None => {
-                        smol::Timer::after(Duration::from_secs(1)).await;
-                    }
-                }
-            }
-        }
-        .await
     }
 
     pub async fn send_vpn(&self, msg: VpnMessage) -> anyhow::Result<()> {
@@ -145,12 +129,14 @@ impl ClientTunnel {
         Ok(msg)
     }
 
-    pub fn get_vpn_client_ip(&self) -> Option<Ipv4Addr> {
-        let current_state = self.current_state.load(Ordering::Relaxed);
-        if current_state == 0 {
-            None
-        } else {
-            Some(Ipv4Addr::from(current_state))
+    pub async fn get_vpn_client_ip(&self) -> Ipv4Addr {
+        loop {
+            let current_state = self.client_ip_addr.load(Ordering::Relaxed);
+            if current_state == 0 {
+                smol::Timer::after(Duration::from_millis(50)).await;
+            } else {
+                return Ipv4Addr::from(current_state);
+            }
         }
     }
 

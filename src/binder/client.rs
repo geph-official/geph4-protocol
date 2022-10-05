@@ -65,8 +65,10 @@ impl CachedBinderClient {
 
     /// A helper function for obtaining the closest exit.
     pub async fn get_closest_exit(&self, destination_exit: &str) -> anyhow::Result<ExitDescriptor> {
+        let token = self.get_auth_token().await?;
         let summary = self.get_summary().await?;
         let mut exits = summary.exits;
+        exits.retain(|e| e.allowed_levels.contains(&token.level));
         // sort exits by similarity to request and returns most similar
         exits.sort_by(|a, b| {
             strsim::damerau_levenshtein(&a.hostname, destination_exit)
