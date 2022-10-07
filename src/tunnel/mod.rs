@@ -110,6 +110,10 @@ impl ClientTunnel {
         }
     }
 
+    pub fn is_connected(&self) -> bool {
+        self.client_ip_addr.load(Ordering::Relaxed) > 1
+    }
+
     pub async fn connect(&self, remote: &str) -> anyhow::Result<RelConn> {
         let (send, recv) = smol::channel::bounded(1);
         self.open_socks5_conn
