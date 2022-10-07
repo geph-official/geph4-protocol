@@ -10,6 +10,7 @@ use bytes::Bytes;
 use futures_util::TryFutureExt;
 use nanorpc::{nanorpc_derive, JrpcRequest, JrpcResponse, RpcService, RpcTransport};
 use serde::{Deserialize, Serialize};
+use smol_str::SmolStr;
 use smol_timeout::TimeoutExt;
 
 /// An RpcTransport that implements the symmetrically authenticated bridge-exit protocol.
@@ -105,5 +106,10 @@ pub enum RawProtocol {
 #[async_trait]
 pub trait BridgeExitProtocol {
     /// Advertises an available raw port. If enough resources are available, returns the address to forward traffic to.
-    async fn advertise_raw(&self, protocol: RawProtocol, bridge_addr: SocketAddr) -> SocketAddr;
+    async fn advertise_raw(
+        &self,
+        protocol: RawProtocol,
+        bridge_addr: SocketAddr,
+        bridge_group: SmolStr,
+    ) -> SocketAddr;
 }
