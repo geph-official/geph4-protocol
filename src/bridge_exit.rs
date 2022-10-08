@@ -34,7 +34,7 @@ impl BridgeExitTransport {
 pub async fn serve_bridge_exit<R: RpcService>(
     socket: UdpSocket,
     key: [u8; 32],
-    service: impl RpcService,
+    service: R,
 ) -> anyhow::Result<()> {
     let mut buf = [0u8; 2048];
     let service = Arc::new(service);
