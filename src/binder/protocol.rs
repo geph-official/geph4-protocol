@@ -107,8 +107,8 @@ pub trait BinderProtocol {
     async fn get_mizaru_epoch_key(&self, level: Level, epoch: u16) -> rsa::RSAPublicKey;
 }
 /// Authentication request
-#[derive(Serialize, Deserialize)]
 #[serde_as]
+#[derive(Serialize, Deserialize)]
 pub struct AuthRequest {
     pub username: SmolStr,
     pub password: SmolStr,
@@ -119,8 +119,8 @@ pub struct AuthRequest {
 }
 
 /// Authentication response
-#[derive(Serialize, Deserialize)]
 #[serde_as]
+#[derive(Serialize, Deserialize)]
 pub struct AuthResponse {
     pub user_info: UserInfo,
     #[serde_as(as = "serde_with::base64::Base64")]
@@ -171,8 +171,8 @@ pub enum Level {
 }
 
 /// A "blind token" that is either valid or not.
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug, Hash)]
 #[serde_as]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct BlindToken {
     pub level: Level,
     #[serde_as(as = "serde_with::base64::Base64")]
@@ -182,8 +182,8 @@ pub struct BlindToken {
 }
 
 /// A captcha.
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug, Hash)]
 #[serde_as]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Captcha {
     pub captcha_id: SmolStr,
     #[serde_as(as = "serde_with::base64::Base64")]
@@ -200,8 +200,8 @@ pub enum MiscFatalError {
 }
 
 /// Bridge descriptor
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Hash)]
 #[serde_as]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Hash)]
 pub struct BridgeDescriptor {
     pub is_direct: bool,
     pub protocol: SmolStr,
