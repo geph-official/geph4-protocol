@@ -145,7 +145,7 @@ pub async fn get_session(
                     .await?
             } else {
                 let mut exits = binder_tunnel_params.ccache.get_summary().await?.exits;
-                let token = binder_tunnel_params.ccache.get_auth_token().await?;
+                let token = binder_tunnel_params.ccache.get_auth_token().await?.1;
                 exits.retain(|e| e.allowed_levels.contains(&token.level));
                 exits[fastrand::usize(0..exits.len())].clone()
             };

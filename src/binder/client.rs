@@ -14,7 +14,7 @@ use smol_str::SmolStr;
 
 use super::protocol::{
     box_decrypt, box_encrypt, AuthError, AuthRequest, AuthResponse, BinderClient, BlindToken,
-    BridgeDescriptor, ExitDescriptor, Level, MasterSummary,
+    BridgeDescriptor, ExitDescriptor, Level, MasterSummary, UserInfo,
 };
 
 /// A caching, intelligent binder client, generic over the precise mechanism used for caching.
@@ -65,7 +65,7 @@ impl CachedBinderClient {
 
     /// A helper function for obtaining the closest exit.
     pub async fn get_closest_exit(&self, destination_exit: &str) -> anyhow::Result<ExitDescriptor> {
-        let token = self.get_auth_token().await?;
+        let token = self.get_auth_token().await?.1;
         let summary = self.get_summary().await?;
         let mut exits = summary.exits;
         exits.retain(|e| e.allowed_levels.contains(&token.level));
@@ -82,7 +82,7 @@ impl CachedBinderClient {
         &self,
         destination_exit: &str,
     ) -> anyhow::Result<Vec<BridgeDescriptor>> {
-        let auth = self.get_auth_token().await?;
+        let auth = self.get_auth_token().await?.1;
         Ok(self
             .inner
             .get_bridges(auth, destination_exit.into())
@@ -90,7 +90,7 @@ impl CachedBinderClient {
     }
 
     /// Obtains an authentication token.
-    pub async fn get_auth_token(&self) -> anyhow::Result<BlindToken> {
+    pub async fn get_auth_token(&self) -> anyhow::Result<(UserInfo, BlindToken)> {
         if let Some(auth_token) = (self.load_cache)("auth_token") {
             if let Ok(auth_token) = serde_json::from_slice(&auth_token) {
                 return Ok(auth_token);
@@ -136,7 +136,7 @@ impl CachedBinderClient {
                 &serde_json::to_vec(&tok)?,
                 Duration::from_secs(86400),
             );
-            return Ok(tok);
+            return Ok((resp.user_info, tok));
         }
         todo!()
         // Ok(token)

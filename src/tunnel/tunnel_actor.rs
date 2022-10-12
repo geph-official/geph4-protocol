@@ -47,7 +47,7 @@ async fn tunnel_actor_once(ctx: TunnelCtx) -> anyhow::Result<()> {
 
     if let EndpointSource::Binder(binder_tunnel_params) = ctx.endpoint {
         // authenticate
-        let token = binder_tunnel_params.ccache.get_auth_token().await?;
+        let token = binder_tunnel_params.ccache.get_auth_token().await?.1;
         authenticate_session(&tunnel_mux, &token)
             .timeout(Duration::from_secs(15))
             .await
