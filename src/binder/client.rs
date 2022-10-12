@@ -133,7 +133,7 @@ impl CachedBinderClient {
             };
             (self.save_cache)(
                 "auth_token",
-                &serde_json::to_vec(&tok)?,
+                &serde_json::to_vec(&(&resp.user_info, &tok))?,
                 Duration::from_secs(86400),
             );
             return Ok((resp.user_info, tok));
