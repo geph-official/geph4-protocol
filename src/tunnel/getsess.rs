@@ -3,7 +3,9 @@ use crate::binder::protocol::ExitDescriptor;
 use super::{protosess::ProtoSession, EndpointSource, TunnelCtx, TunnelStatus};
 use anyhow::Context;
 use async_net::SocketAddr;
+use dashmap::DashMap;
 use futures_util::stream::FuturesUnordered;
+use once_cell::sync::Lazy;
 use smol::prelude::*;
 use smol_timeout::TimeoutExt;
 use sosistab::Session;
@@ -75,14 +77,17 @@ pub fn parse_independent_endpoint(
 }
 
 pub async fn ipv4_addr_from_hostname(hostname: &str) -> anyhow::Result<SocketAddr> {
-    // eprintln!("getting ipv4 addr from hostname!");
+    static CACHE: Lazy<DashMap<String, SocketAddr>> = Lazy::new(DashMap::new);
+    if let Some(addr) = CACHE.get(hostname) {
+        return Ok(*addr);
+    }
     let res = smol::net::resolve(&format!("{}:19831", hostname))
         .await
         .context("can't resolve hostname of exit")?
         .into_iter()
         .find(|v| v.is_ipv4())
         .context("can't find ipv4 address for exit")?;
-
+    CACHE.insert(hostname.to_string(), res);
     Ok(res)
 }
 
