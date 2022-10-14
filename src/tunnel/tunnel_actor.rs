@@ -26,7 +26,7 @@ use std::{
 };
 
 /// Background task of a TunnelManager
-pub async fn tunnel_actor(ctx: TunnelCtx) -> anyhow::Result<()> {
+pub(crate) async fn tunnel_actor(ctx: TunnelCtx) -> anyhow::Result<()> {
     loop {
         // Run until a failure happens, log the error, then restart
         if let Err(err) = tunnel_actor_once(ctx.clone()).await {

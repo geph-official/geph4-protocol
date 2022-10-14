@@ -1,6 +1,8 @@
 use crate::{binder::client::CachedBinderClient, VpnMessage};
 
+use async_net::SocketAddr;
 use smol::channel::{Receiver, Sender};
+use smol_str::SmolStr;
 use sosistab::{RelConn, TimeSeries};
 use std::{
     sync::{
@@ -34,7 +36,7 @@ pub struct BinderTunnelParams {
 }
 
 #[derive(Clone)]
-pub struct TunnelStats {
+pub(crate) struct TunnelStats {
     pub stats_gatherer: Arc<sosistab::StatsGatherer>,
     pub last_ping_ms: Arc<AtomicU32>,
 }
@@ -49,7 +51,7 @@ pub struct ConnectionOptions {
 }
 
 #[derive(Clone)]
-pub struct TunnelCtx {
+pub(crate) struct TunnelCtx {
     pub options: ConnectionOptions,
     pub endpoint: EndpointSource,
     pub recv_socks5_conn: Receiver<(String, Sender<sosistab::RelConn>)>,
@@ -57,6 +59,18 @@ pub struct TunnelCtx {
     pub tunnel_stats: TunnelStats,
     recv_vpn_outgoing: Receiver<VpnMessage>,
     send_vpn_incoming: Sender<VpnMessage>,
+
+    status_callback: Arc<dyn Fn(TunnelStatus) + Send + Sync + 'static>,
+}
+
+/// A status update from a [ClientTunnel].
+#[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
+#[non_exhaustive]
+pub enum TunnelStatus {
+    /// Just about to connect to a given address, with the given protocol
+    PreConnect { addr: SocketAddr, protocol: SmolStr },
+    /// Sucessfully connected to the given address and protocol. This means that the tunnel is now using going through this endpoint.
+    PostConnect { addr: SocketAddr, protocol: SmolStr },
 }
 
 /// A tunnel starts and keeps alive the best sosistab session it can under given constraints.
@@ -75,7 +89,12 @@ pub struct ClientTunnel {
 }
 
 impl ClientTunnel {
-    pub fn new(options: ConnectionOptions, endpoint: EndpointSource) -> Self {
+    /// Creates a new ClientTunnel.
+    pub fn new(
+        options: ConnectionOptions,
+        endpoint: EndpointSource,
+        status_callback: impl Fn(TunnelStatus) + Send + Sync + 'static,
+    ) -> Self {
         let (send_socks5, recv_socks5) = smol::channel::unbounded();
         let (send_outgoing, recv_outgoing) = smol::channel::bounded(10000);
         let (send_incoming, recv_incoming) = smol::channel::bounded(10000);
@@ -95,6 +114,7 @@ impl ClientTunnel {
             tunnel_stats: tunnel_stats.clone(),
             send_vpn_incoming: send_incoming,
             recv_vpn_outgoing: recv_outgoing,
+            status_callback: Arc::new(status_callback),
         };
         let task = Arc::new(smolscale::spawn(tunnel_actor(ctx)));
         // let task = Arc::new(smolscale::spawn(smol::future::pending()));

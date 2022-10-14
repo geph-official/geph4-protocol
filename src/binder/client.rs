@@ -81,12 +81,27 @@ impl CachedBinderClient {
     pub async fn get_bridges(
         &self,
         destination_exit: &str,
+        force_fresh: bool,
     ) -> anyhow::Result<Vec<BridgeDescriptor>> {
+        let bridge_key = format!("bridges {}", destination_exit);
         let auth = self.get_auth_token().await?.1;
-        Ok(self
+        if !force_fresh {
+            if let Some(bridges) = (self.load_cache)(&bridge_key) {
+                if let Ok(bridges) = serde_json::from_slice(&bridges) {
+                    return Ok(bridges);
+                }
+            }
+        }
+        let bridges = self
             .inner
             .get_bridges(auth, destination_exit.into())
-            .await?)
+            .await?;
+        (self.save_cache)(
+            &bridge_key,
+            &serde_json::to_vec(&bridges)?,
+            Duration::from_secs(600),
+        );
+        Ok(bridges)
     }
 
     /// Obtains an authentication token.

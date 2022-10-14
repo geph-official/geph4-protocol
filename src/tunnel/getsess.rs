@@ -1,6 +1,6 @@
 use crate::binder::protocol::ExitDescriptor;
 
-use super::{protosess::ProtoSession, EndpointSource, TunnelCtx};
+use super::{protosess::ProtoSession, EndpointSource, TunnelCtx, TunnelStatus};
 use anyhow::Context;
 use async_net::SocketAddr;
 use futures_util::stream::FuturesUnordered;
@@ -86,13 +86,17 @@ pub async fn ipv4_addr_from_hostname(hostname: &str) -> anyhow::Result<SocketAdd
     Ok(res)
 }
 
-pub async fn get_session(
+pub(crate) async fn get_session(
     ctx: TunnelCtx,
     bias_for: Option<SocketAddr>,
 ) -> anyhow::Result<ProtoSession> {
     match &ctx.endpoint {
         EndpointSource::Independent { endpoint } => {
             let (server_addr, server_pk) = parse_independent_endpoint(endpoint)?;
+            (ctx.status_callback)(TunnelStatus::PreConnect {
+                addr: server_addr,
+                protocol: "sosistab".into(),
+            });
             Ok(ProtoSession {
                 inner: if ctx.options.use_tcp {
                     sosistab_tcp(
@@ -161,6 +165,7 @@ pub async fn get_session(
                         async {
                             let server_addr =
                                 ipv4_addr_from_hostname(&selected_exit.hostname).await?;
+
                             Ok(ProtoSession {
                                 inner: get_one_sess(
                                     ctx.clone(),
@@ -199,11 +204,15 @@ pub async fn get_session(
 }
 
 /// Gets a session, given a context and a destination
-pub async fn get_one_sess(
+pub(crate) async fn get_one_sess(
     ctx: TunnelCtx,
     addr: SocketAddr,
     pubkey: x25519_dalek::PublicKey,
 ) -> anyhow::Result<Session> {
+    (ctx.status_callback)(TunnelStatus::PreConnect {
+        addr,
+        protocol: "sosistab".into(),
+    });
     let ctx1 = ctx.clone();
 
     let tcp_fut = sosistab_tcp(
@@ -245,7 +254,7 @@ pub async fn get_one_sess(
 }
 
 /// Obtain a session through bridges
-pub async fn get_through_fastest_bridge(
+pub(crate) async fn get_through_fastest_bridge(
     ctx: TunnelCtx,
     selected_exit: ExitDescriptor,
     privileged: Option<SocketAddr>,
@@ -255,7 +264,7 @@ pub async fn get_through_fastest_bridge(
     if let EndpointSource::Binder(binder_tunnel_params) = ctx.endpoint {
         let mut bridges = binder_tunnel_params
             .ccache
-            .get_bridges(&selected_exit.hostname)
+            .get_bridges(&selected_exit.hostname, false)
             .await
             .context("can't get bridges")?;
         log::debug!("got {} bridges", bridges.len());
