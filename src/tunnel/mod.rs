@@ -176,7 +176,7 @@ impl ClientTunnel {
                 .get_timeseries("total_sent_bytes")
                 .unwrap_or_default(),
             recv_series: gatherer
-                .get_timeseries("total_sent_bytes")
+                .get_timeseries("total_recv_bytes")
                 .unwrap_or_default(),
             loss_series: gatherer.get_timeseries("recv_loss").unwrap_or_default(),
             ping_series: gatherer.get_timeseries("smooth_ping").unwrap_or_default(),
