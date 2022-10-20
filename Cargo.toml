@@ -41,7 +41,7 @@ strsim = "0.10.0"
 tap= "1.0.1"
 
 x25519-dalek={ version = "1.2.0", features = ["serde"], default-features=false }
-sosistab = "0.4.48"
+sosistab = "0.5"
 nanorpc = "0.1.7"
 async-trait = "0.1.57"
 thiserror = "1.0.37"

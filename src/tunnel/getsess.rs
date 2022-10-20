@@ -44,7 +44,7 @@ pub fn sosistab_tcp(
     stats_gatherer: Arc<sosistab::StatsGatherer>,
 ) -> sosistab::ClientConfig {
     sosistab::ClientConfig::new(
-        sosistab::Protocol::DirectTcp,
+        sosistab::Protocol::DirectTls,
         server_addr,
         server_pk,
         stats_gatherer,
