@@ -156,9 +156,12 @@ async fn connection_handler_loop(
         notify_activity();
         smolscale::spawn(async move {
             let start = Instant::now();
-            let remote = (&mux).open_conn(Some(conn_host.clone())).await;
+            let remote = (&mux)
+                .open_conn(Some(conn_host.clone()))
+                .timeout(Duration::from_secs(10))
+                .await;
             match remote {
-                Ok(remote) => {
+                Some(Ok(remote)) => {
                     log::debug!(
                         "opened connection to {} in {} ms",
                         conn_host,
@@ -168,11 +171,20 @@ async fn connection_handler_loop(
                     conn_reply.send(remote).await.context("conn_reply failed")?;
                     Ok::<(), anyhow::Error>(())
                 }
-                Err(err) => {
+                Some(Err(err)) => {
                     send_death
                         .send(anyhow::anyhow!(
                             "conn open error {} in {}s",
                             err,
+                            start.elapsed().as_secs_f64()
+                        ))
+                        .await?;
+                    Ok(())
+                }
+                None => {
+                    send_death
+                        .send(anyhow::anyhow!(
+                            "conn timeout in {}s",
                             start.elapsed().as_secs_f64()
                         ))
                         .await?;

@@ -19,7 +19,7 @@ impl ProtoSession {
 
     /// Creates a multiplexed session directly.
     pub fn multiplex(self) -> Multiplex {
-        // // We send a packet consisting of 32 zeros. This is the standard signal for a fresh session that doesn't hijack an existing multiplex.
+        // We send a packet consisting of 32 zeros. This is the standard signal for a fresh session that doesn't hijack an existing multiplex.
         // self.inner.send_bytes(vec![0; 32].into());
         self.inner.multiplex()
     }
