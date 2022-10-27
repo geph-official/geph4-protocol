@@ -191,7 +191,7 @@ async fn watchdog_loop(ctx: TunnelCtx, tunnel_mux: Arc<Multiplex>) -> anyhow::Re
         let start = Instant::now();
         if tunnel_mux
             .open_conn(None)
-            .timeout(Duration::from_secs(60))
+            .timeout(Duration::from_secs(10))
             .await
             .is_none()
         {
