@@ -1,6 +1,6 @@
 use crate::binder::protocol::ExitDescriptor;
 
-use super::{protosess::ProtoSession, EndpointSource, TunnelCtx, TunnelStatus};
+use super::{protosess::ProtoSession, ConnectionStatus, EndpointSource, TunnelCtx, TunnelStatus};
 use anyhow::Context;
 use async_net::SocketAddr;
 use dashmap::DashMap;
@@ -170,7 +170,6 @@ pub(crate) async fn get_session(
                         async {
                             let server_addr =
                                 ipv4_addr_from_hostname(&selected_exit.hostname).await?;
-
                             Ok(ProtoSession {
                                 inner: get_one_sess(
                                     ctx.clone(),
@@ -214,20 +213,33 @@ pub(crate) async fn get_one_sess(
     addr: SocketAddr,
     pubkey: x25519_dalek::PublicKey,
 ) -> anyhow::Result<Session> {
+    *ctx.connect_status.write() = ConnectionStatus::Connecting;
+
     (ctx.status_callback)(TunnelStatus::PreConnect {
         addr,
         protocol: "sosistab".into(),
     });
     let ctx1 = ctx.clone();
 
-    let tcp_fut = sosistab_tcp(
-        addr,
-        pubkey,
-        ctx.options.tcp_shard_count,
-        Duration::from_secs(ctx.options.tcp_shard_lifetime),
-        ctx.tunnel_stats.stats_gatherer,
-    )
-    .connect();
+    let tcp_fut = {
+        let ctx = ctx.clone();
+        async {
+            let res = sosistab_tcp(
+                addr,
+                pubkey,
+                ctx.options.tcp_shard_count,
+                Duration::from_secs(ctx.options.tcp_shard_lifetime),
+                ctx.tunnel_stats.stats_gatherer,
+            )
+            .connect()
+            .await?;
+            *ctx.connect_status.write() = ConnectionStatus::Connected {
+                protocol: "sosistab-tls".into(),
+                address: addr.to_string().into(),
+            };
+            anyhow::Ok(res)
+        }
+    };
     if !ctx.options.use_tcp {
         Ok(geph4_aioutils::try_race(
             async {
@@ -242,6 +254,10 @@ pub(crate) async fn get_one_sess(
                 .connect()
                 .await?;
                 log::info!("connected to UDP for {}", addr);
+                *ctx.connect_status.write() = ConnectionStatus::Connected {
+                    protocol: "sosistab-udp".into(),
+                    address: addr.to_string().into(),
+                };
                 Ok(sess)
             }
             .boxed(),

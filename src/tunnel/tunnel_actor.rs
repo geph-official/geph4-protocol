@@ -58,6 +58,7 @@ async fn tunnel_actor_once(ctx: TunnelCtx) -> anyhow::Result<()> {
     let client_id: u128 = rand::random();
     log::info!("negotiating VPN with client id {}...", client_id);
     let vpn_client_ip = loop {
+        log::debug!("trying...");
         let hello = VpnMessage::ClientHello { client_id };
         tunnel_mux
             .send_urel(bincode::serialize(&hello)?.as_slice())

@@ -1,6 +1,7 @@
 use crate::{binder::client::CachedBinderClient, VpnMessage};
 
 use async_net::SocketAddr;
+use parking_lot::RwLock;
 use smol::channel::{Receiver, Sender};
 use smol_str::SmolStr;
 use sosistab::{RelConn, TimeSeries};
@@ -57,6 +58,7 @@ pub(crate) struct TunnelCtx {
     pub recv_socks5_conn: Receiver<(String, Sender<sosistab::RelConn>)>,
     pub vpn_client_ip: Arc<AtomicU32>,
     pub tunnel_stats: TunnelStats,
+    pub connect_status: Arc<RwLock<ConnectionStatus>>,
     recv_vpn_outgoing: Receiver<VpnMessage>,
     send_vpn_incoming: Sender<VpnMessage>,
 
@@ -73,12 +75,26 @@ pub enum TunnelStatus {
     PostConnect { addr: SocketAddr, protocol: SmolStr },
 }
 
+/// A ConnectionStatus shows the status of the tunnel.
+#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord)]
+pub enum ConnectionStatus {
+    Connecting,
+    Connected { protocol: SmolStr, address: SmolStr },
+}
+
+impl ConnectionStatus {
+    pub fn connected(&self) -> bool {
+        matches!(self, Self::Connected { .. })
+    }
+}
+
 /// A tunnel starts and keeps alive the best sosistab session it can under given constraints.
 /// A sosistab Session is *a single end-to-end connection between a client and a server.*
 /// This can be thought of as analogous to TcpStream, except all reads and writes are datagram-based and unreliable.
 pub struct ClientTunnel {
     endpoint: EndpointSource,
     client_ip_addr: Arc<AtomicU32>,
+    connect_status: Arc<RwLock<ConnectionStatus>>,
 
     send_vpn_outgoing: Sender<VpnMessage>,
     recv_vpn_incoming: Receiver<VpnMessage>,
@@ -106,18 +122,19 @@ impl ClientTunnel {
             stats_gatherer,
             last_ping_ms,
         };
+        let connect_status = Arc::new(RwLock::new(ConnectionStatus::Connecting));
         let ctx = TunnelCtx {
             options,
             endpoint: endpoint.clone(),
             recv_socks5_conn: recv_socks5,
             vpn_client_ip: current_state.clone(),
             tunnel_stats: tunnel_stats.clone(),
+            connect_status: connect_status.clone(),
             send_vpn_incoming: send_incoming,
             recv_vpn_outgoing: recv_outgoing,
             status_callback: Arc::new(status_callback),
         };
         let task = Arc::new(smolscale::spawn(tunnel_actor(ctx)));
-        // let task = Arc::new(smolscale::spawn(smol::future::pending()));
 
         ClientTunnel {
             endpoint,
@@ -126,15 +143,22 @@ impl ClientTunnel {
             recv_vpn_incoming: recv_incoming,
             open_socks5_conn: send_socks5,
             tunnel_stats,
+            connect_status,
             _task: task,
         }
     }
 
-    pub fn is_connected(&self) -> bool {
-        self.client_ip_addr.load(Ordering::Relaxed) > 1
+    /// Returns the current connection status.
+    pub fn status(&self) -> ConnectionStatus {
+        if self.client_ip_addr.load(Ordering::Relaxed) == 0 {
+            ConnectionStatus::Connecting
+        } else {
+            self.connect_status.read().clone()
+        }
     }
 
-    pub async fn connect(&self, remote: &str) -> anyhow::Result<RelConn> {
+    /// Returns a sosistab stream to the given remote host.
+    pub async fn connect_stream(&self, remote: &str) -> anyhow::Result<RelConn> {
         let (send, recv) = smol::channel::bounded(1);
         self.open_socks5_conn
             .send((remote.to_string(), send))
