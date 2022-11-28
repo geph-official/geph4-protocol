@@ -108,7 +108,7 @@ pub trait BinderProtocol {
 }
 /// Authentication request
 #[serde_as]
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, Eq, PartialEq)]
 pub struct AuthRequest {
     pub username: SmolStr,
     pub password: SmolStr,
@@ -120,7 +120,7 @@ pub struct AuthRequest {
 
 /// Authentication response
 #[serde_as]
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, Eq, PartialEq)]
 pub struct AuthResponse {
     pub user_info: UserInfo,
     #[serde_as(as = "serde_with::base64::Base64")]
