@@ -1,5 +1,5 @@
 use async_net::SocketAddr;
-use geph4_protocol::bridge_exit::{BridgeExitClient, BridgeExitTransport, RawProtocol};
+use geph4_protocol::bridge_exit::{BridgeExitClient, BridgeExitTransport, LegacyProtocol};
 
 fn main() -> anyhow::Result<()> {
     smol::future::block_on(async {
@@ -9,7 +9,7 @@ fn main() -> anyhow::Result<()> {
         let client = BridgeExitClient(transport);
         dbg!(
             client
-                .advertise_raw(RawProtocol::Udp, exit_addr, "fake-lol".into())
+                .advertise_raw(LegacyProtocol::Udp, exit_addr, "fake-lol".into())
                 .await?
         );
         Ok(())

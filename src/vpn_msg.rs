@@ -1,6 +1,6 @@
 use bytes::{Bytes, BytesMut};
 use serde::{Deserialize, Serialize};
-use sosistab::{Buff, BuffMut};
+
 use std::net::Ipv4Addr;
 use std::ops::DerefMut;
 
@@ -86,8 +86,8 @@ impl VpnStdio {
     }
 }
 
-pub fn serialize<T: Serialize>(val: &T) -> Buff {
-    let mut bmut = BuffMut::new();
+pub fn serialize<T: Serialize>(val: &T) -> Bytes {
+    let mut bmut = Vec::new();
     bincode::serialize_into(bmut.deref_mut(), val).unwrap();
-    bmut.freeze()
+    bmut.into()
 }

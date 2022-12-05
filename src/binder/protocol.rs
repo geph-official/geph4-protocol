@@ -206,7 +206,8 @@ pub struct BridgeDescriptor {
     pub is_direct: bool,
     pub protocol: SmolStr,
     pub endpoint: SocketAddr,
-    pub sosistab_key: x25519_dalek::PublicKey,
+    #[serde_as(as = "serde_with::hex::Hex")]
+    pub sosistab_key: Bytes,
     pub exit_hostname: SmolStr,
     pub alloc_group: SmolStr,
     pub update_time: u64,
@@ -239,9 +240,9 @@ mod tests {
     #[test]
     fn box_encryption() {
         let test_string = b"hello world";
-        let alice_sk = x25519_dalek::StaticSecret::new(&mut rand::thread_rng());
+        let alice_sk = x25519_dalek::StaticSecret::new(rand::thread_rng());
         let alice_pk = x25519_dalek::PublicKey::from(&alice_sk);
-        let bob_sk = x25519_dalek::StaticSecret::new(&mut rand::thread_rng());
+        let bob_sk = x25519_dalek::StaticSecret::new(rand::thread_rng());
         let bob_pk = x25519_dalek::PublicKey::from(&bob_sk);
         let encrypted = box_encrypt(test_string, alice_sk, bob_pk);
         let (decrypted, purported_alice_pk) = box_decrypt(&encrypted, bob_sk).unwrap();

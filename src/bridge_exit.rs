@@ -96,7 +96,7 @@ impl RpcTransport for BridgeExitTransport {
 
 /// An available raw, kernel-forwardable protocol
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Eq, Hash, Deserialize, Serialize)]
-pub enum RawProtocol {
+pub enum LegacyProtocol {
     Tcp,
     Udp,
 }
@@ -108,7 +108,15 @@ pub trait BridgeExitProtocol {
     /// Advertises an available raw port. If enough resources are available, returns the address to forward traffic to.
     async fn advertise_raw(
         &self,
-        protocol: RawProtocol,
+        protocol: LegacyProtocol,
+        bridge_addr: SocketAddr,
+        bridge_group: SmolStr,
+    ) -> SocketAddr;
+
+    /// Advertises an available raw port, with the v2 protocol. If enough resources are available, returns the address to forward traffic to.
+    async fn advertise_raw_v2(
+        &self,
+        protocol: SmolStr,
         bridge_addr: SocketAddr,
         bridge_group: SmolStr,
     ) -> SocketAddr;
