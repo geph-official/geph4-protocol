@@ -206,7 +206,6 @@ pub struct BridgeDescriptor {
     pub is_direct: bool,
     pub protocol: SmolStr,
     pub endpoint: SocketAddr,
-    #[serde_as(as = "serde_with::hex::Hex")]
     pub sosistab_key: Bytes,
     pub exit_hostname: SmolStr,
     pub alloc_group: SmolStr,
