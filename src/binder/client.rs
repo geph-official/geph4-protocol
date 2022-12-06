@@ -8,7 +8,7 @@ use async_compat::CompatExt;
 use async_trait::async_trait;
 use bytes::Bytes;
 use nanorpc::{DynRpcTransport, RpcTransport};
-use rand::Rng;
+use rand::{seq::SliceRandom, Rng};
 use reqwest::header::{HeaderMap, HeaderName};
 use smol_str::SmolStr;
 
@@ -69,6 +69,8 @@ impl CachedBinderClient {
         let summary = self.get_summary().await?;
         let mut exits = summary.exits;
         exits.retain(|e| e.allowed_levels.contains(&token.level));
+        // shuffle exits
+        exits.shuffle(&mut rand::thread_rng());
         // sort exits by similarity to request and returns most similar
         exits.sort_by(|a, b| {
             strsim::damerau_levenshtein(&a.hostname, destination_exit)
