@@ -100,6 +100,9 @@ pub trait BinderProtocol {
     /// Obtains a list of bridges.
     async fn get_bridges(&self, token: BlindToken, exit: SmolStr) -> Vec<BridgeDescriptor>;
 
+    /// Obtains a list of bridges, limited to sosistab2.
+    async fn get_bridges_v2(&self, token: BlindToken, exit: SmolStr) -> Vec<BridgeDescriptor>;
+
     /// Obtains the Mizaru long-term key.
     async fn get_mizaru_pk(&self, level: Level) -> mizaru::PublicKey;
 
