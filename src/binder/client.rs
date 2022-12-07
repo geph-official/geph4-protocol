@@ -106,6 +106,33 @@ impl CachedBinderClient {
         Ok(bridges)
     }
 
+    /// A function for obtaining a list of v2 bridges.
+    pub async fn get_bridges_v2(
+        &self,
+        destination_exit: &str,
+        force_fresh: bool,
+    ) -> anyhow::Result<Vec<BridgeDescriptor>> {
+        let bridge_key = format!("bridgesv2 {}", destination_exit);
+        let auth = self.get_auth_token().await?.1;
+        if !force_fresh {
+            if let Some(bridges) = (self.load_cache)(&bridge_key) {
+                if let Ok(bridges) = serde_json::from_slice(&bridges) {
+                    return Ok(bridges);
+                }
+            }
+        }
+        let bridges = self
+            .inner
+            .get_bridges_v2(auth, destination_exit.into())
+            .await?;
+        (self.save_cache)(
+            &bridge_key,
+            &serde_json::to_vec(&bridges)?,
+            Duration::from_secs(600),
+        );
+        Ok(bridges)
+    }
+
     /// Obtains an authentication token.
     pub async fn get_auth_token(&self) -> anyhow::Result<(UserInfo, BlindToken)> {
         if let Some(auth_token) = (self.load_cache)("auth_token") {
