@@ -1,3 +1,4 @@
+use async_net::Ipv4Addr;
 use async_trait::async_trait;
 use nanorpc::nanorpc_derive;
 use serde::{Deserialize, Serialize};
@@ -21,6 +22,9 @@ pub trait ClientExitProtocol {
 
     /// Uploads a telemetry sample. Also used as a keepalive "heartbeat".
     async fn telemetry_heartbeat(&self, tele: ClientTelemetry);
+
+    /// Obtain a VPN IPv4 address.
+    async fn get_vpn_ipv4(&self) -> Option<Ipv4Addr>;
 }
 
 /// The special "hostname" that serves the client-exit protocol through sosistab2.
