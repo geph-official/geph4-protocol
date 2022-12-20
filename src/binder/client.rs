@@ -7,9 +7,13 @@ use anyhow::Context;
 use async_compat::CompatExt;
 use async_trait::async_trait;
 use bytes::Bytes;
+
 use nanorpc::{DynRpcTransport, RpcTransport};
 use rand::{seq::SliceRandom, Rng};
-use reqwest::header::{HeaderMap, HeaderName};
+use reqwest::{
+    header::{HeaderMap, HeaderName},
+    StatusCode,
+};
 use smol_str::SmolStr;
 
 use super::protocol::{
@@ -232,6 +236,9 @@ impl RpcTransport for E2eeHttpTransport {
             .send()
             .compat()
             .await?;
+        if resp.status() != StatusCode::OK {
+            anyhow::bail!("non-200 status: {}", resp.status());
+        }
         let encrypted_resp = resp.bytes().compat().await?;
         let (resp, _) = box_decrypt(&encrypted_resp, eph_sk)?;
         Ok(serde_json::from_slice(&resp)?)
