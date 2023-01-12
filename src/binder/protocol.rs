@@ -217,7 +217,7 @@ pub struct BridgeDescriptor {
 }
 
 /// Exit descriptor
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ExitDescriptor {
     pub hostname: SmolStr,
     pub signing_key: ed25519_dalek::PublicKey,
@@ -226,10 +226,11 @@ pub struct ExitDescriptor {
     pub direct_routes: Vec<BridgeDescriptor>,
     pub legacy_direct_sosistab_pk: x25519_dalek::PublicKey,
     pub allowed_levels: Vec<Level>,
+    pub load: f64,
 }
 
 /// Master summary.
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct MasterSummary {
     pub exits: Vec<ExitDescriptor>,
     pub bad_countries: Vec<SmolStr>,

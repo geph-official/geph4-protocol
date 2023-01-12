@@ -120,4 +120,7 @@ pub trait BridgeExitProtocol {
         bridge_addr: SocketAddr,
         bridge_group: SmolStr,
     ) -> SocketAddr;
+
+    /// Gets the current load of the exit.
+    async fn load_factor(&self) -> f64;
 }
