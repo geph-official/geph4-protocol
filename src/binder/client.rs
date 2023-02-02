@@ -178,6 +178,7 @@ impl CachedBinderClient {
                 level,
                 unblinded_digest: digest.into(),
                 unblinded_signature_bincode: bincode::serialize(&unblinded_signature)?.into(),
+                version: std::env::var("GEPH_VERSION").ok().map(|s| s.into()),
             };
             (self.save_cache)(
                 "auth_token",

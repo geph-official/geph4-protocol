@@ -182,6 +182,9 @@ pub struct BlindToken {
     pub unblinded_digest: Bytes,
     #[serde_as(as = "serde_with::base64::Base64")]
     pub unblinded_signature_bincode: Bytes,
+
+    #[serde(default)]
+    pub version: Option<SmolStr>,
 }
 
 /// A captcha.
