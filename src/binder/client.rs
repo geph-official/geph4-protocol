@@ -263,6 +263,7 @@ impl E2eeHttpTransport {
                     }
                     hh
                 })
+                .no_proxy()
                 .build()
                 .unwrap(),
         }
