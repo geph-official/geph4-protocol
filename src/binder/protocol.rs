@@ -108,6 +108,9 @@ pub trait BinderProtocol {
 
     /// Obtains a Mizaru epoch key.
     async fn get_mizaru_epoch_key(&self, level: Level, epoch: u16) -> rsa::RSAPublicKey;
+
+    /// Obtains recent announcements, as a string containing an RSS feed.
+    async fn get_announcements(&self) -> String;
 }
 /// Authentication request
 #[serde_as]
