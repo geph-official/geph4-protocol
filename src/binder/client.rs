@@ -189,10 +189,8 @@ impl CachedBinderClient {
                 Duration::from_secs(86400),
             );
             // intentionally sleep between 3 and 8 seconds to increase the anonymity set
-            smol::Timer::after(Duration::from_secs_f64(
-                rand::thread_rng().gen_range(3.0, 8.0),
-            ))
-            .await;
+            let duration = Duration::from_secs_f64(rand::thread_rng().gen_range(3.0, 8.0));
+            smol::Timer::after(duration).await;
             return Ok((resp.user_info, tok));
         }
         unreachable!()
