@@ -144,11 +144,13 @@ impl CachedBinderClient {
                 return Ok(auth_token);
             }
         }
+
         let digest: [u8; 32] = rand::thread_rng().gen();
         for level in [Level::Free, Level::Plus] {
             let mizaru_pk = self.get_mizaru_pk(level).await?;
             let epoch = mizaru::time_to_epoch(SystemTime::now()) as u16;
             let subkey = self.inner.get_mizaru_epoch_key(level, epoch).await?;
+
             let digest = rsa_fdh::blind::hash_message::<sha2::Sha256, _>(&subkey, &digest).unwrap();
             let (blinded_digest, unblinder) =
                 rsa_fdh::blind::blind(&mut rand::thread_rng(), &subkey, &digest);
@@ -169,6 +171,7 @@ impl CachedBinderClient {
             let blind_signature: mizaru::BlindedSignature =
                 bincode::deserialize(&resp.blind_signature_bincode)?;
             let unblinded_signature = blind_signature.unblind(&unblinder);
+            // This checks that the 1. epoch is correct and 2. the Merkle proof is correct, so if the binder lied to us about the subkey, we will fail now and avoid being deanonymized
             if unblinded_signature.epoch != epoch as usize
                 || !mizaru_pk.blind_verify(&digest, &unblinded_signature)
             {
@@ -185,10 +188,14 @@ impl CachedBinderClient {
                 &serde_json::to_vec(&(&resp.user_info, &tok))?,
                 Duration::from_secs(86400),
             );
+            // intentionally sleep between 3 and 8 seconds to increase the anonymity set
+            smol::Timer::after(Duration::from_secs_f64(
+                rand::thread_rng().gen_range(3.0, 8.0),
+            ))
+            .await;
             return Ok((resp.user_info, tok));
         }
-        todo!()
-        // Ok(token)
+        unreachable!()
     }
 
     /// Obtains the long-term Mizaru public key of a level.
@@ -264,6 +271,8 @@ impl E2eeHttpTransport {
                     hh
                 })
                 .no_proxy()
+                .http1_only()
+                .pool_idle_timeout(Duration::from_secs(1)) // reduce linkability by forcing new connections
                 .build()
                 .unwrap(),
         }
