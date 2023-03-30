@@ -25,7 +25,7 @@ use super::protocol::{
 };
 
 // TODO: lazy once cell?
-static MASTER_SUMMARY_GIBBERNAME: &str = "it is thursday my dudes";
+static MASTER_SUMMARY_GIBBERNAME: &str = "newnej-peg";
 
 /// A caching, intelligent binder client, generic over the precise mechanism used for caching.
 #[allow(clippy::type_complexity)]
@@ -66,7 +66,8 @@ impl CachedBinderClient {
 
         // load from the network
         let summary = self.inner.get_summary().await?;
-        if !self.verify_summary(&summary).await {
+        println!("summary from BINDER: {:?}", summary);
+        if !self.verify_summary(&summary).await? {
             anyhow::bail!(
                 "summary from binder: {:?} does not match gibbername summary history",
                 &summary
@@ -81,20 +82,18 @@ impl CachedBinderClient {
         Ok(summary)
     }
 
-    async fn verify_summary(&self, summary: &MasterSummary) -> bool {
+    async fn verify_summary(&self, summary: &MasterSummary) -> anyhow::Result<bool> {
+        let my_summary_hash = blake3::hash(&summary.stdcode());
+        println!("my summary hash: {:?}", my_summary_hash);
         // 1. get melprot client (TODO: connect to a melnode in a reverse-proxy way that's smarter)
         let client = melprot::Client::autoconnect(melstructs::NetID::Mainnet).await?;
-        // 2. get our gibbername
-        // TODO: let history = gibbername::get_whole_history(MASTER_SUMMARY_GIBBERNAME).await?;
-
-        let my_summary_hash = blake3::hash(&summary.stdcode());
-        let history: Vec<String> = vec![]; // TODO
-                                           // 3. get whole history and check if input summary matches anything in the whole history
-        history
+        let history = gibbername::lookup_whole_history(&client, MASTER_SUMMARY_GIBBERNAME).await?;
+        println!("history from gibbername: {:?}", history);
+        Ok(history
             .iter()
             .rev()
-            .find(|summary_hash| *summary_hash == my_summary_hash.to_string().into())
-            .is_some()
+            .find(|summary_hash| *summary_hash == &my_summary_hash.to_string())
+            .is_some())
     }
 
     /// A helper function for obtaining the closest exit.
