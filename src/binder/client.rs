@@ -64,11 +64,11 @@ impl CachedBinderClient {
 
         // load from the network
         let summary = self.inner.get_summary().await?;
-        log::info!("summary from binder: {:?}", summary);
+
         if !self.verify_summary(&summary).await? {
             anyhow::bail!(
-                "summary from binder: {:?} does not match gibbername summary history",
-                &summary
+                "summary hash from binder: {:?} does not match gibbername summary history",
+                summary.clean_hash()
             );
         }
 
@@ -83,7 +83,10 @@ impl CachedBinderClient {
     /// Verifies the given [`MasterSummary`] against what is stored in a gibbername chain on Mel.
     async fn verify_summary(&self, summary: &MasterSummary) -> anyhow::Result<bool> {
         let my_summary_hash = summary.clean_hash();
-        log::info!("about to verify summary hash: {:?}", my_summary_hash);
+        log::info!(
+            "about to verify summary hash from binder: {:?}",
+            my_summary_hash
+        );
 
         // TODO: connect to a melnode in a "reverse-proxy" manner.
         let client = melprot::Client::autoconnect(melstructs::NetID::Mainnet).await?;
