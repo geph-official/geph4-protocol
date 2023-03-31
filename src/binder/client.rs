@@ -15,7 +15,6 @@ use reqwest::{
     StatusCode,
 };
 use smol_str::SmolStr;
-use stdcode::StdcodeSerializeExt;
 
 use super::protocol::{
     box_decrypt, box_encrypt, AuthError, AuthRequest, AuthResponse, BinderClient, BlindToken,
@@ -23,7 +22,7 @@ use super::protocol::{
 };
 
 /// The gibbername bound to a hash of the [`MasterSummary`]. Used to verify the summary response the binder server gives the client.
-static MASTER_SUMMARY_GIBBERNAME: &str = "zemvej-peg";
+const MASTER_SUMMARY_GIBBERNAME: &str = "zemvej-peg";
 
 /// A caching, intelligent binder client, generic over the precise mechanism used for caching.
 #[allow(clippy::type_complexity)]
@@ -81,6 +80,12 @@ impl CachedBinderClient {
     }
 
     /// Verifies the given [`MasterSummary`] against what is stored in a gibbername chain on Mel.
+    /// NOTE: There may be an interval where newly updated exit lists in the binder database are't consistent with
+    /// what is stored on the corresponding gibbername chain.
+    ///
+    /// We check from newest to oldest until we find a match, or we run out of bindings.
+    /// Old domain names being used by other people is not a threat because
+    /// we also hash the sosistab2 public key of the servers, which other people can't get.
     async fn verify_summary(&self, summary: &MasterSummary) -> anyhow::Result<bool> {
         let my_summary_hash = summary.clean_hash();
         log::info!(
@@ -94,12 +99,6 @@ impl CachedBinderClient {
 
         log::info!("history from gibbername: {:?}", history);
 
-        // NOTE: There may be an interval where newly updated exit lists in the binder database are't consistent with
-        // what is stored on the corresponding gibbername chain.
-        //
-        // We check from newest to oldest until we find a match, or we run out of bindings.
-        // Old domain names being used by other people is not a threat because
-        // we also hash the sosistab2 public key of the servers, which other people can't get.
         Ok(history
             .iter()
             .rev()
