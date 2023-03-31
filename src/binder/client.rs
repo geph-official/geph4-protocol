@@ -1,6 +1,5 @@
 use std::{
     convert::TryInto,
-    hash::Hash,
     time::{Duration, SystemTime},
 };
 
@@ -9,7 +8,6 @@ use async_compat::CompatExt;
 use async_trait::async_trait;
 use bytes::Bytes;
 
-use futures_util::stream::NextIfEq;
 use nanorpc::{DynRpcTransport, RpcTransport};
 use rand::{seq::SliceRandom, Rng};
 use reqwest::{
@@ -24,8 +22,8 @@ use super::protocol::{
     BridgeDescriptor, ExitDescriptor, Level, MasterSummary, UserInfo,
 };
 
-// TODO: lazy once cell?
-static MASTER_SUMMARY_GIBBERNAME: &str = "newnej-peg";
+/// The gibbername bound to a hash of the [`MasterSummary`]. Used to verify the summary response the binder server gives the client.
+static MASTER_SUMMARY_GIBBERNAME: &str = "qeppej-peg";
 
 /// A caching, intelligent binder client, generic over the precise mechanism used for caching.
 #[allow(clippy::type_complexity)]
@@ -84,16 +82,18 @@ impl CachedBinderClient {
 
     async fn verify_summary(&self, summary: &MasterSummary) -> anyhow::Result<bool> {
         let my_summary_hash = blake3::hash(&summary.stdcode());
-        println!("my summary hash: {:?}", my_summary_hash);
-        // 1. get melprot client (TODO: connect to a melnode in a reverse-proxy way that's smarter)
+        log::info!("about to verify summary hash: {:?}", my_summary_hash);
+
+        // TODO: connect to a melnode in a "reverse-proxy" manner.
         let client = melprot::Client::autoconnect(melstructs::NetID::Mainnet).await?;
         let history = gibbername::lookup_whole_history(&client, MASTER_SUMMARY_GIBBERNAME).await?;
-        println!("history from gibbername: {:?}", history);
+
+        log::info!("history from gibbername: {:?}", history);
+
         Ok(history
             .iter()
             .rev()
-            .find(|summary_hash| *summary_hash == &my_summary_hash.to_string())
-            .is_some())
+            .any(|summary_hash| summary_hash == &my_summary_hash.to_string()))
     }
 
     /// A helper function for obtaining the closest exit.
