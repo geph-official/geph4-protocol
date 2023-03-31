@@ -64,7 +64,7 @@ impl CachedBinderClient {
 
         // load from the network
         let summary = self.inner.get_summary().await?;
-        println!("summary from BINDER: {:?}", summary);
+        log::info!("summary from binder: {:?}", summary);
         if !self.verify_summary(&summary).await? {
             anyhow::bail!(
                 "summary from binder: {:?} does not match gibbername summary history",
@@ -82,7 +82,7 @@ impl CachedBinderClient {
 
     /// Verifies the given [`MasterSummary`] against what is stored in a gibbername chain on Mel.
     async fn verify_summary(&self, summary: &MasterSummary) -> anyhow::Result<bool> {
-        let my_summary_hash = blake3::hash(&summary.stdcode());
+        let my_summary_hash = summary.clean_hash();
         log::info!("about to verify summary hash: {:?}", my_summary_hash);
 
         // TODO: connect to a melnode in a "reverse-proxy" manner.

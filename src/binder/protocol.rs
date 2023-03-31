@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use smol_str::SmolStr;
 use std::net::SocketAddr;
+use stdcode::StdcodeSerializeExt;
 use thiserror::Error;
 
 /// Encrypts a message, "box-style", to a destination diffie-hellman public key.
@@ -240,6 +241,27 @@ pub struct ExitDescriptor {
 pub struct MasterSummary {
     pub exits: Vec<ExitDescriptor>,
     pub bad_countries: Vec<SmolStr>,
+}
+
+impl MasterSummary {
+    pub fn clean_hash(&self) -> blake3::Hash {
+        // get a copy with cleared out direct_route vectors in each exit descriptor
+        let clean_exits: Vec<ExitDescriptor> = self
+            .exits
+            .iter()
+            .map(|exit| {
+                let mut exit = exit.clone();
+                exit.direct_routes.clear();
+                exit
+            })
+            .collect();
+        let summary = MasterSummary {
+            exits: clean_exits,
+            bad_countries: self.bad_countries.clone(),
+        };
+
+        blake3::hash(&summary.stdcode())
+    }
 }
 
 #[cfg(test)]
