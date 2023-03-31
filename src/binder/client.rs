@@ -80,6 +80,7 @@ impl CachedBinderClient {
         Ok(summary)
     }
 
+    /// Verifies the given [`MasterSummary`] against what is stored in a gibbername chain on Mel.
     async fn verify_summary(&self, summary: &MasterSummary) -> anyhow::Result<bool> {
         let my_summary_hash = blake3::hash(&summary.stdcode());
         log::info!("about to verify summary hash: {:?}", my_summary_hash);
@@ -90,6 +91,12 @@ impl CachedBinderClient {
 
         log::info!("history from gibbername: {:?}", history);
 
+        // NOTE: There may be an interval where newly updated exit lists in the binder database are't consistent with
+        // what is stored on the corresponding gibbername chain.
+        //
+        // We check from newest to oldest until we find a match, or we run out of bindings.
+        // Old domain names being used by other people is not a threat because
+        // we also hash the sosistab2 public key of the servers, which other people can't get.
         Ok(history
             .iter()
             .rev()
