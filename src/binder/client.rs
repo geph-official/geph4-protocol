@@ -23,7 +23,7 @@ use super::protocol::{
 };
 
 /// The gibbername bound to a hash of the [`MasterSummary`]. Used to verify the summary response the binder server gives the client.
-static MASTER_SUMMARY_GIBBERNAME: &str = "qeppej-peg";
+static MASTER_SUMMARY_GIBBERNAME: &str = "zemvej-peg";
 
 /// A caching, intelligent binder client, generic over the precise mechanism used for caching.
 #[allow(clippy::type_complexity)]
