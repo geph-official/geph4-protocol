@@ -245,8 +245,7 @@ pub struct MasterSummary {
 
 impl MasterSummary {
     /// Gets a hash of the [`MasterSummary`].
-    /// This clears out the `direct_route` vectors in each exit descriptor before hashing,
-    /// because they may randomly get switched out, making the hash value unstable.
+    /// This clears out dynamically changing fields like `load` and `direct_route` in each exit descriptor before hashing.
     pub fn clean_hash(&self) -> blake3::Hash {
         let clean_exits: Vec<ExitDescriptor> = self
             .exits
