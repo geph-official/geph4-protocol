@@ -1,5 +1,6 @@
 use std::{
     convert::TryInto,
+    sync::Arc,
     time::{Duration, SystemTime},
 };
 
@@ -8,22 +9,37 @@ use async_compat::CompatExt;
 use async_trait::async_trait;
 use bytes::Bytes;
 
-use nanorpc::{DynRpcTransport, RpcTransport};
+use melprot::NodeRpcClient;
+use nanorpc::{DynRpcTransport, JrpcRequest, JrpcResponse, RpcTransport};
 use rand::{seq::SliceRandom, Rng};
 use reqwest::{
     header::{HeaderMap, HeaderName},
     StatusCode,
 };
 use smol_str::SmolStr;
-use stdcode::StdcodeSerializeExt;
 
 use super::protocol::{
     box_decrypt, box_encrypt, AuthError, AuthRequest, AuthResponse, BinderClient, BlindToken,
-    BridgeDescriptor, ExitDescriptor, Level, MasterSummary, UserInfo,
+    BridgeDescriptor, ExitDescriptor, Level, MasterSummary, RpcError, UserInfo,
 };
 
 /// The gibbername bound to a hash of the [`MasterSummary`]. Used to verify the summary response the binder server gives the client.
 static MASTER_SUMMARY_GIBBERNAME: &str = "zemvej-peg";
+
+struct CustomRpcTransport {
+    binder_client: Arc<DynBinderClient>,
+}
+
+#[async_trait]
+impl RpcTransport for CustomRpcTransport {
+    type Error = anyhow::Error;
+
+    async fn call_raw(&self, req: JrpcRequest) -> Result<JrpcResponse, Self::Error> {
+        let resp = self.binder_client.reverse_proxy_melnode(req).await??;
+        log::info!("resp from CustomRpcTransport::call_raw = {:?}", resp);
+        Ok(resp)
+    }
+}
 
 /// A caching, intelligent binder client, generic over the precise mechanism used for caching.
 #[allow(clippy::type_complexity)]
@@ -31,7 +47,7 @@ pub struct CachedBinderClient {
     load_cache: Box<dyn Fn(&str) -> Option<Bytes> + Send + Sync + 'static>,
     save_cache: Box<dyn Fn(&str, &[u8], Duration) + Send + Sync + 'static>,
 
-    inner: DynBinderClient,
+    inner: Arc<DynBinderClient>,
     username: SmolStr,
     password: SmolStr,
 }
@@ -48,7 +64,7 @@ impl CachedBinderClient {
         Self {
             load_cache: Box::new(load_cache),
             save_cache: Box::new(save_cache),
-            inner,
+            inner: Arc::new(inner),
             username: username.into(),
             password: password.into(),
         }
@@ -88,8 +104,21 @@ impl CachedBinderClient {
             my_summary_hash
         );
 
-        // TODO: connect to a melnode in a "reverse-proxy" manner.
-        let client = melprot::Client::autoconnect(melstructs::NetID::Mainnet).await?;
+        // Connect to a melnode that is reverse-proxied through the binder.
+        let client = melprot::Client::new(
+            melstructs::NetID::Mainnet,
+            NodeRpcClient(CustomRpcTransport {
+                binder_client: self.inner.clone(),
+            }),
+        );
+        // you must load the client with a hardcoded known height + block hash before it can verify anything
+        let trusted_height = melbootstrap::checkpoint_height(melstructs::NetID::Mainnet)
+            .context("Unable to get checkpoint height")?;
+        client.trust(trusted_height);
+
+        log::info!("^__^ !! created reverse-proxied mel client !! ^__^");
+
+        // let client = melprot::Client::autoconnect(melstructs::NetID::Mainnet).await?;
         let history = gibbername::lookup_whole_history(&client, MASTER_SUMMARY_GIBBERNAME).await?;
 
         log::info!("history from gibbername: {:?}", history);

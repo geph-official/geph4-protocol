@@ -5,7 +5,7 @@ use chacha20poly1305::{
     aead::{Aead, NewAead},
     ChaCha20Poly1305, Nonce,
 };
-use nanorpc::nanorpc_derive;
+use nanorpc::{nanorpc_derive, JrpcError, JrpcRequest, JrpcResponse};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use smol_str::SmolStr;
@@ -68,6 +68,16 @@ pub enum BoxDecryptError {
     BadFormat,
 }
 
+#[derive(Error, Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum RpcError {
+    #[error("error retreiving bootstrap routes")]
+    BootstrapFailed,
+    #[error("error connecting to melnode")]
+    ConnectFailed,
+    #[error("error communicating with melnode")]
+    CommFailed,
+}
+
 #[nanorpc_derive]
 #[async_trait]
 pub trait BinderProtocol {
@@ -112,6 +122,9 @@ pub trait BinderProtocol {
 
     /// Obtains recent announcements, as a string containing an RSS feed.
     async fn get_announcements(&self) -> String;
+
+    /// Reverse proxies requests to melnode
+    async fn reverse_proxy_melnode(&self, req: JrpcRequest) -> Result<JrpcResponse, RpcError>;
 }
 /// Authentication request
 #[serde_as]
