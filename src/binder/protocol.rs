@@ -138,6 +138,24 @@ pub struct AuthRequest {
     pub blinded_digest: Bytes,
 }
 
+/// Authentication request generic over authentication type
+#[serde_as]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, Eq, PartialEq)]
+pub struct AuthRequestV2 {
+    pub auth_kind: AuthKind,
+    pub level: Level,
+    pub epoch: u16,
+    #[serde_as(as = "serde_with::base64::Base64")]
+    pub blinded_digest: Bytes,
+}
+
+/// The different authentications methods available in AuthRequestV2
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, Eq, PartialEq)]
+pub enum AuthKind {
+    Password(SmolStr, SmolStr),
+    Signature,
+}
+
 /// Authentication response
 #[serde_as]
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, Eq, PartialEq)]
