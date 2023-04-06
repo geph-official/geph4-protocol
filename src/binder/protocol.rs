@@ -84,6 +84,9 @@ pub trait BinderProtocol {
     /// Authenticates a 24-hour-long session for a user.
     async fn authenticate(&self, auth_req: AuthRequest) -> Result<AuthResponse, AuthError>;
 
+    /// Authenticates a 24-hour-long session for a user.
+    async fn authenticate_v2(&self, auth_req: AuthRequestV2) -> Result<AuthResponseV2, AuthError>;
+
     /// Validates a blind signature token, applying rate-limiting as appropriate
     async fn validate(&self, token: BlindToken) -> bool;
 
@@ -138,11 +141,41 @@ pub struct AuthRequest {
     pub blinded_digest: Bytes,
 }
 
+/// Authentication request generic over authentication type
+#[serde_as]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, Eq, PartialEq)]
+pub struct AuthRequestV2 {
+    pub auth_kind: AuthKind,
+    pub level: Level,
+    pub epoch: u16,
+    #[serde_as(as = "serde_with::base64::Base64")]
+    pub blinded_digest: Bytes,
+}
+
+type Username = SmolStr;
+type Password = SmolStr;
+
+/// The different authentications methods available in AuthRequestV2
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, Eq, PartialEq)]
+pub enum AuthKind {
+    Password(Username, Password),
+    Signature,
+}
+
 /// Authentication response
 #[serde_as]
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, Eq, PartialEq)]
 pub struct AuthResponse {
     pub user_info: UserInfo,
+    #[serde_as(as = "serde_with::base64::Base64")]
+    pub blind_signature_bincode: Bytes,
+}
+
+/// Authentication response v2
+#[serde_as]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, Eq, PartialEq)]
+pub struct AuthResponseV2 {
+    pub user_info: UserInfoV2,
     #[serde_as(as = "serde_with::base64::Base64")]
     pub blind_signature_bincode: Bytes,
 }
@@ -174,6 +207,13 @@ pub enum RegisterError {
 pub struct UserInfo {
     pub userid: i32,
     pub username: SmolStr,
+    pub subscription: Option<SubscriptionInfo>,
+}
+
+/// Information for a particular user v2
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub struct UserInfoV2 {
+    pub userid: i32,
     pub subscription: Option<SubscriptionInfo>,
 }
 
