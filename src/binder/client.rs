@@ -24,7 +24,7 @@ use super::protocol::{
 };
 
 /// The gibbername bound to a hash of the [`MasterSummary`]. Used to verify the summary response the binder server gives the client.
-const MASTER_SUMMARY_GIBBERNAME: &str = "zelbev-peg";
+const MASTER_SUMMARY_GIBBERNAME: &str = "retmev-peg";
 
 struct CustomRpcTransport {
     binder_client: Arc<DynBinderClient>,
