@@ -20,11 +20,11 @@ use smol_str::SmolStr;
 
 use super::protocol::{
     box_decrypt, box_encrypt, AuthError, AuthRequest, AuthResponse, BinderClient, BlindToken,
-    BridgeDescriptor, ExitDescriptor, Level, MasterSummary, RpcError, UserInfo,
+    BridgeDescriptor, ExitDescriptor, Level, MasterSummary, UserInfo,
 };
 
 /// The gibbername bound to a hash of the [`MasterSummary`]. Used to verify the summary response the binder server gives the client.
-const MASTER_SUMMARY_GIBBERNAME: &str = "zemvej-peg";
+const MASTER_SUMMARY_GIBBERNAME: &str = "zelbev-peg";
 
 struct CustomRpcTransport {
     binder_client: Arc<DynBinderClient>,
@@ -36,7 +36,7 @@ impl RpcTransport for CustomRpcTransport {
 
     async fn call_raw(&self, req: JrpcRequest) -> Result<JrpcResponse, Self::Error> {
         let resp = self.binder_client.reverse_proxy_melnode(req).await??;
-        log::info!("resp from CustomRpcTransport::call_raw = {:?}", resp);
+        // log::info!("resp from CustomRpcTransport::call_raw = {:?}", resp);
         Ok(resp)
     }
 }
@@ -105,10 +105,8 @@ impl CachedBinderClient {
     /// we also hash the sosistab2 public key of the servers, which other people can't get.
     async fn verify_summary(&self, summary: &MasterSummary) -> anyhow::Result<bool> {
         let my_summary_hash = summary.clean_hash();
-        log::info!(
-            "about to verify summary hash from binder: {:?}",
-            my_summary_hash
-        );
+        log::info!("about to verify summary hash from binder: {my_summary_hash}");
+        println!("hellllllll0");
 
         // Connect to a melnode that is reverse-proxied through the binder.
         let client = melprot::Client::new(
@@ -123,7 +121,7 @@ impl CachedBinderClient {
         client.trust(trusted_height);
 
         log::info!("^__^ !! created reverse-proxied mel client !! ^__^");
-
+        log::info!("gibbername = {MASTER_SUMMARY_GIBBERNAME}");
         // let client = melprot::Client::autoconnect(melstructs::NetID::Mainnet).await?;
         let history = gibbername::lookup_whole_history(&client, MASTER_SUMMARY_GIBBERNAME).await?;
 

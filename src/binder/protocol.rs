@@ -5,7 +5,7 @@ use chacha20poly1305::{
     aead::{Aead, NewAead},
     ChaCha20Poly1305, Nonce,
 };
-use nanorpc::{nanorpc_derive, JrpcError, JrpcRequest, JrpcResponse};
+use nanorpc::{nanorpc_derive, JrpcRequest, JrpcResponse};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use smol_str::SmolStr;
@@ -260,7 +260,7 @@ impl MasterSummary {
     /// Gets a hash of the [`MasterSummary`].
     /// This clears out dynamically changing fields like `load` and `direct_route` in each exit descriptor before hashing.
     pub fn clean_hash(&self) -> blake3::Hash {
-        let clean_exits: Vec<ExitDescriptor> = self
+        let mut clean_exits: Vec<ExitDescriptor> = self
             .exits
             .iter()
             .map(|exit| {
@@ -270,6 +270,8 @@ impl MasterSummary {
                 exit
             })
             .collect();
+        // sort alphabetically by hostname
+        clean_exits.sort_by(|a, b| a.hostname.cmp(&b.hostname));
         let summary = MasterSummary {
             exits: clean_exits,
             bad_countries: self.bad_countries.clone(),
