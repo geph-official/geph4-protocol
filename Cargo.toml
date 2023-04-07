@@ -60,4 +60,5 @@ melprot = "0.13.4"
 melstructs = "0.3.2"
 gibbername = { git = "https://github.com/mel-project/gibbername", branch = "master" }
 melbootstrap = "0.8.3"
+tmelcrypt = "0.2.7"
 # sosistab= "0.4.4"

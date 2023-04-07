@@ -12,6 +12,7 @@ use smol_str::SmolStr;
 use std::net::SocketAddr;
 use stdcode::StdcodeSerializeExt;
 use thiserror::Error;
+use tmelcrypt::Ed25519PK;
 
 /// Encrypts a message, "box-style", to a destination diffie-hellman public key.
 pub fn box_encrypt(
@@ -155,7 +156,6 @@ pub struct AuthRequestV2 {
 type Username = SmolStr;
 type Password = SmolStr;
 type Signature = Vec<u8>;
-type Timestamp = u64;
 
 // geph4-client:
 
@@ -171,10 +171,10 @@ pub enum Credentials {
         password: Password,
     },
     Signature {
-        pubkey: x25519_dalek::PublicKey,
+        pubkey: Ed25519PK,
         // Derived from the given timestamp.
         signature: Signature,
-        timestamp: Timestamp,
+        message: String,
     },
 }
 
