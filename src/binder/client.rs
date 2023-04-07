@@ -18,9 +18,11 @@ use reqwest::{
 };
 use smol_str::SmolStr;
 
+use crate::binder::protocol::{AuthKind, AuthRequestV2, AuthResponseV2};
+
 use super::protocol::{
-    box_decrypt, box_encrypt, AuthError, AuthRequest, AuthResponse, BinderClient, BlindToken,
-    BridgeDescriptor, ExitDescriptor, Level, MasterSummary, UserInfo,
+    box_decrypt, box_encrypt, AuthError, BinderClient, BlindToken, BridgeDescriptor,
+    ExitDescriptor, Level, MasterSummary, UserInfoV2,
 };
 
 /// The gibbername bound to a hash of the [`MasterSummary`]. Used to verify the summary response the binder server gives the client.
@@ -106,7 +108,6 @@ impl CachedBinderClient {
     async fn verify_summary(&self, summary: &MasterSummary) -> anyhow::Result<bool> {
         let my_summary_hash = summary.clean_hash();
         log::info!("about to verify summary hash from binder: {my_summary_hash}");
-        println!("hellllllll0");
 
         // Connect to a melnode that is reverse-proxied through the binder.
         let client = melprot::Client::new(
@@ -119,14 +120,10 @@ impl CachedBinderClient {
         let trusted_height = melbootstrap::checkpoint_height(melstructs::NetID::Mainnet)
             .context("Unable to get checkpoint height")?;
         client.trust(trusted_height);
-
         log::info!("^__^ !! created reverse-proxied mel client !! ^__^");
-        log::info!("gibbername = {MASTER_SUMMARY_GIBBERNAME}");
-        // let client = melprot::Client::autoconnect(melstructs::NetID::Mainnet).await?;
+
         let history = gibbername::lookup_whole_history(&client, MASTER_SUMMARY_GIBBERNAME).await?;
-
         log::info!("history from gibbername: {:?}", history);
-
         Ok(history
             .iter()
             .rev()
@@ -204,7 +201,7 @@ impl CachedBinderClient {
     }
 
     /// Obtains an authentication token.
-    pub async fn get_auth_token(&self) -> anyhow::Result<(UserInfo, BlindToken)> {
+    pub async fn get_auth_token(&self) -> anyhow::Result<(UserInfoV2, BlindToken)> {
         if let Some(auth_token) = (self.load_cache)("auth_token") {
             if let Ok(auth_token) = serde_json::from_slice(&auth_token) {
                 return Ok(auth_token);
@@ -220,11 +217,10 @@ impl CachedBinderClient {
             let digest = rsa_fdh::blind::hash_message::<sha2::Sha256, _>(&subkey, &digest).unwrap();
             let (blinded_digest, unblinder) =
                 rsa_fdh::blind::blind(&mut rand::thread_rng(), &subkey, &digest);
-            let resp: AuthResponse = match self
+            let resp: AuthResponseV2 = match self
                 .inner
-                .authenticate(AuthRequest {
-                    username: self.username.clone(),
-                    password: self.password.clone(),
+                .authenticate_v2(AuthRequestV2 {
+                    auth_kind: AuthKind::Password(self.username.clone(), self.password.clone()),
                     level,
                     epoch,
                     blinded_digest: blinded_digest.into(),

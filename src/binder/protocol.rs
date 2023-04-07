@@ -160,6 +160,7 @@ type Password = SmolStr;
 pub enum AuthKind {
     Password(Username, Password),
     Signature,
+    SignedTimestamp(),
 }
 
 /// Authentication response
@@ -310,8 +311,10 @@ impl MasterSummary {
                 exit
             })
             .collect();
-        // sort alphabetically by hostname
+
+        // We sort alphabetically by hostname here to ensure that the generated hash is consistent, since the DB response may not guarantee ordering.
         clean_exits.sort_by(|a, b| a.hostname.cmp(&b.hostname));
+
         let summary = MasterSummary {
             exits: clean_exits,
             bad_countries: self.bad_countries.clone(),
