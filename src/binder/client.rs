@@ -18,7 +18,7 @@ use reqwest::{
 };
 use smol_str::SmolStr;
 
-use crate::binder::protocol::{AuthKind, AuthRequestV2, AuthResponseV2};
+use crate::binder::protocol::{AuthRequestV2, AuthResponseV2, Credentials};
 
 use super::protocol::{
     box_decrypt, box_encrypt, AuthError, BinderClient, BlindToken, BridgeDescriptor,
@@ -50,8 +50,7 @@ pub struct CachedBinderClient {
     save_cache: Box<dyn Fn(&str, &[u8], Duration) + Send + Sync + 'static>,
 
     inner: Arc<DynBinderClient>,
-    username: SmolStr,
-    password: SmolStr,
+    credentials: Credentials,
 }
 
 impl CachedBinderClient {
@@ -60,15 +59,13 @@ impl CachedBinderClient {
         load_cache: impl Fn(&str) -> Option<Bytes> + Send + Sync + 'static,
         save_cache: impl Fn(&str, &[u8], Duration) + Send + Sync + 'static,
         inner: DynBinderClient,
-        username: &str,
-        password: &str,
+        credentials: Credentials,
     ) -> Self {
         Self {
             load_cache: Box::new(load_cache),
             save_cache: Box::new(save_cache),
             inner: Arc::new(inner),
-            username: username.into(),
-            password: password.into(),
+            credentials,
         }
     }
 
@@ -89,6 +86,8 @@ impl CachedBinderClient {
                 summary.clean_hash()
             );
         }
+
+        log::info!("successfully verified master summary against gibbername summary history!");
 
         (self.save_cache)(
             "summary",
@@ -220,7 +219,7 @@ impl CachedBinderClient {
             let resp: AuthResponseV2 = match self
                 .inner
                 .authenticate_v2(AuthRequestV2 {
-                    auth_kind: AuthKind::Password(self.username.clone(), self.password.clone()),
+                    credentials: self.credentials.clone(),
                     level,
                     epoch,
                     blinded_digest: blinded_digest.into(),

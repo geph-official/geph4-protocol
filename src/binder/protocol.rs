@@ -145,7 +145,7 @@ pub struct AuthRequest {
 #[serde_as]
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, Eq, PartialEq)]
 pub struct AuthRequestV2 {
-    pub auth_kind: AuthKind,
+    pub credentials: Credentials,
     pub level: Level,
     pub epoch: u16,
     #[serde_as(as = "serde_with::base64::Base64")]
@@ -154,13 +154,28 @@ pub struct AuthRequestV2 {
 
 type Username = SmolStr;
 type Password = SmolStr;
+type Signature = Vec<u8>;
+type Timestamp = u64;
+
+// geph4-client:
+
+// - pass in private key (derive pubkey from private key)
+// - generate timestamp
+// - sign timestamp -> signature
 
 /// The different authentications methods available in AuthRequestV2
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, Eq, PartialEq)]
-pub enum AuthKind {
-    Password(Username, Password),
-    Signature,
-    SignedTimestamp(),
+pub enum Credentials {
+    Password {
+        username: Username,
+        password: Password,
+    },
+    Signature {
+        pubkey: x25519_dalek::PublicKey,
+        // Derived from the given timestamp.
+        signature: Signature,
+        timestamp: Timestamp,
+    },
 }
 
 /// Authentication response
