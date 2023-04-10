@@ -83,6 +83,7 @@ pub enum RpcError {
 #[async_trait]
 pub trait BinderProtocol {
     /// Authenticates a 24-hour-long session for a user.
+    /// NOTE: This is a legacy method, and will be deprecated later.
     async fn authenticate(&self, auth_req: AuthRequest) -> Result<AuthResponse, AuthError>;
 
     /// Authenticates a 24-hour-long session for a user.
@@ -95,6 +96,7 @@ pub trait BinderProtocol {
     async fn get_captcha(&self) -> Result<Captcha, MiscFatalError>;
 
     /// Registers a new user.
+    /// NOTE: This is a legacy method, and will be deprecated later.
     async fn register_user(
         &self,
         username: SmolStr,
@@ -103,8 +105,19 @@ pub trait BinderProtocol {
         captcha_soln: SmolStr,
     ) -> Result<(), RegisterError>;
 
+    pub async fn register_user_v2(
+        &self,
+        credentials: Credentials,
+        captcha_id: &str,
+        captcha_soln: &str,
+    ) -> anyhow::Result<Result<(), RegisterError>>;
+
     /// Deletes a user.
+    /// NOTE: This is a legacy method, and will be deprecated later.
     async fn delete_user(&self, username: SmolStr, password: SmolStr) -> Result<(), AuthError>;
+
+    /// Deletes a user.
+    async fn delete_user_v2(&self, credentials: Credentials) -> Result<(), AuthError>;
 
     /// Adds a bridge route.
     async fn add_bridge_route(&self, descriptor: BridgeDescriptor) -> Result<(), MiscFatalError>;
