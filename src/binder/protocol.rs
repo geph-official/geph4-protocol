@@ -14,6 +14,8 @@ use stdcode::StdcodeSerializeExt;
 use thiserror::Error;
 use tmelcrypt::Ed25519PK;
 
+pub static AUTH_MSG_PREFIX: &str = "geph-auth-";
+
 /// Encrypts a message, "box-style", to a destination diffie-hellman public key.
 pub fn box_encrypt(
     plain: &[u8],
