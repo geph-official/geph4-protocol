@@ -105,12 +105,13 @@ pub trait BinderProtocol {
         captcha_soln: SmolStr,
     ) -> Result<(), RegisterError>;
 
-    pub async fn register_user_v2(
+    /// Registers a new user.
+    async fn register_user_v2(
         &self,
         credentials: Credentials,
-        captcha_id: &str,
-        captcha_soln: &str,
-    ) -> anyhow::Result<Result<(), RegisterError>>;
+        captcha_id: SmolStr,
+        captcha_soln: SmolStr,
+    ) -> Result<(), RegisterError>;
 
     /// Deletes a user.
     /// NOTE: This is a legacy method, and will be deprecated later.
@@ -170,12 +171,6 @@ type Username = SmolStr;
 type Password = SmolStr;
 type Signature = Vec<u8>;
 
-// geph4-client:
-
-// - pass in private key (derive pubkey from private key)
-// - generate timestamp
-// - sign timestamp -> signature
-
 /// The different authentications methods available in AuthRequestV2
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, Eq, PartialEq)]
 pub enum Credentials {
@@ -212,8 +207,8 @@ pub struct AuthResponseV2 {
 /// Authentication error
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
 pub enum AuthError {
-    #[error("invalid username or password")]
-    InvalidUsernameOrPassword,
+    #[error("invalid credentials")]
+    InvalidCredentials,
     #[error("too many requests")]
     TooManyRequests,
     #[error("level wrong")]
@@ -225,8 +220,8 @@ pub enum AuthError {
 /// Registration error
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
 pub enum RegisterError {
-    #[error("duplicate username")]
-    DuplicateUsername,
+    #[error("duplicate credentials")]
+    DuplicateCredentials,
     #[error("other error: {0}")]
     Other(SmolStr),
 }
