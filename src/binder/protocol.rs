@@ -9,7 +9,10 @@ use nanorpc::{nanorpc_derive, JrpcRequest, JrpcResponse};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use smol_str::SmolStr;
-use std::net::SocketAddr;
+use std::{
+    net::SocketAddr,
+    str::FromStr,
+};
 use stdcode::StdcodeSerializeExt;
 use thiserror::Error;
 use tmelcrypt::Ed25519PK;
@@ -173,6 +176,18 @@ type Username = SmolStr;
 type Password = SmolStr;
 type Signature = Vec<u8>;
 
+#[derive(Debug, Clone, Error)]
+pub struct ParseCredentialsError {
+    #[error("invalid credentials")]
+    Invalid(String),
+}
+
+impl fmt::Display for ParseCredentialsError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Failed to parse credentials")
+    }
+}
+
 /// The different authentications methods available in AuthRequestV2
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, Eq, PartialEq)]
 pub enum Credentials {
@@ -188,6 +203,45 @@ pub enum Credentials {
     },
 }
 
+impl FromStr for Credentials {
+    type Err = AuthError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let parts: Vec<&str> = s.split(':').collect();
+        match parts.get(0) {
+            Some(&"Password") => {
+                if parts.len() == 3 {
+                    Ok(Credentials::Password {
+                        username: parts[1].to_string().into(),
+                        password: parts[2].to_string().into(),
+                    })
+                } else {
+                    Err(AuthError::InvalidCredentials)
+                }
+            }
+            Some(&"Signature") => {
+                if parts.len() == 4 {
+                    let message = parts[3].to_string();
+                    let signature = parts[2].as_bytes().to_vec();
+                    let pubkey = Ed25519PK::from_str(parts[1]).map_err(|_| AuthError::InvalidCredentials);
+                    let pubkey = match pubkey {
+                        Ok(pubkey) => pubkey,
+                        Err(_) => return Err(AuthError::InvalidCredentials),
+                    };
+
+                    Ok(Credentials::Signature {
+                        pubkey,
+                        signature,
+                        message,
+                    })
+                } else {
+                    Err(AuthError::InvalidCredentials)
+                }
+            }
+            _ => Err(AuthError::InvalidCredentials),
+        }
+    }
+}
 /// Authentication response
 #[serde_as]
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, Eq, PartialEq)]
