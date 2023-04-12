@@ -188,46 +188,6 @@ pub enum Credentials {
     },
 }
 
-impl FromStr for Credentials {
-    type Err = AuthError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let parts: Vec<&str> = s.split(':').collect();
-        match parts.get(0) {
-            Some(&"Password") => {
-                if parts.len() == 3 {
-                    Ok(Credentials::Password {
-                        username: parts[1].to_string().into(),
-                        password: parts[2].to_string().into(),
-                    })
-                } else {
-                    Err(AuthError::InvalidCredentials)
-                }
-            }
-            Some(&"Signature") => {
-                if parts.len() == 4 {
-                    let message = parts[3].to_string();
-                    let signature = parts[2].as_bytes().to_vec();
-                    let pubkey =
-                        Ed25519PK::from_str(parts[1]).map_err(|_| AuthError::InvalidCredentials);
-                    let pubkey = match pubkey {
-                        Ok(pubkey) => pubkey,
-                        Err(_) => return Err(AuthError::InvalidCredentials),
-                    };
-
-                    Ok(Credentials::Signature {
-                        pubkey,
-                        signature,
-                        message,
-                    })
-                } else {
-                    Err(AuthError::InvalidCredentials)
-                }
-            }
-            _ => Err(AuthError::InvalidCredentials),
-        }
-    }
-}
 /// Authentication response
 #[serde_as]
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, Eq, PartialEq)]
