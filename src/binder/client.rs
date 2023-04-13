@@ -30,6 +30,9 @@ pub struct CachedBinderClient {
     inner: DynBinderClient,
     username: SmolStr,
     password: SmolStr,
+
+    mizaru_free: mizaru::PublicKey,
+    mizaru_plus: mizaru::PublicKey,
 }
 
 impl CachedBinderClient {
@@ -40,6 +43,8 @@ impl CachedBinderClient {
         inner: DynBinderClient,
         username: &str,
         password: &str,
+        mizaru_free: mizaru::PublicKey,
+        mizaru_plus: mizaru::PublicKey,
     ) -> Self {
         Self {
             load_cache: Box::new(load_cache),
@@ -47,6 +52,8 @@ impl CachedBinderClient {
             inner,
             username: username.into(),
             password: password.into(),
+            mizaru_free,
+            mizaru_plus,
         }
     }
 
@@ -198,19 +205,10 @@ impl CachedBinderClient {
 
     /// Obtains the long-term Mizaru public key of a level.
     async fn get_mizaru_pk(&self, level: Level) -> anyhow::Result<mizaru::PublicKey> {
-        let k = format!("mizaru_pk_{:?}", level);
-        if let Some(pk) = (self.load_cache)(&k) {
-            if let Ok(pk) = serde_json::from_slice(&pk) {
-                return Ok(pk);
-            }
+        match level {
+            Level::Free => Ok(self.mizaru_free.clone()),
+            Level::Plus => Ok(self.mizaru_plus.clone()),
         }
-        let pk = self.inner.get_mizaru_pk(level).await?;
-        (self.save_cache)(
-            &k,
-            &serde_json::to_vec(&pk)?,
-            Duration::from_secs(1_000_000),
-        );
-        Ok(pk)
     }
 }
 
