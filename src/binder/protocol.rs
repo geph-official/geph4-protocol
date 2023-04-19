@@ -9,12 +9,30 @@ use nanorpc::{nanorpc_derive, JrpcRequest, JrpcResponse};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use smol_str::SmolStr;
-use std::{net::SocketAddr, str::FromStr};
+use std::{
+    net::SocketAddr,
+    time::{SystemTime, UNIX_EPOCH},
+};
 use stdcode::StdcodeSerializeExt;
 use thiserror::Error;
-use tmelcrypt::Ed25519PK;
+use tmelcrypt::{Ed25519PK, Ed25519SK};
 
-pub static AUTH_MSG_PREFIX: &str = "geph-auth-";
+const PUBKEY_AUTH_COOKIE: &[u8; 32] = b"gephauth001---------------------";
+
+/// Verifies a signature for the pubkey authentication method used by the client/binder protocol.
+pub fn verify_pk_auth(pk: Ed25519PK, unix_secs: u64, sig: &[u8]) -> bool {
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    if now.abs_diff(unix_secs) > 600 {
+        return false;
+    }
+    pk.verify(
+        blake3::keyed_hash(PUBKEY_AUTH_COOKIE, &unix_secs.to_be_bytes()).as_bytes(),
+        &sig,
+    )
+}
 
 /// Encrypts a message, "box-style", to a destination diffie-hellman public key.
 pub fn box_encrypt(
@@ -182,10 +200,24 @@ pub enum Credentials {
     },
     Signature {
         pubkey: Ed25519PK,
-        // Derived from the given timestamp.
+        unix_secs: u64,
         signature: Signature,
-        message: String,
     },
+}
+
+impl Credentials {
+    /// Signs a new keypair credential, valid for the next 10 minutes, given a secret key.
+    pub fn new_keypair(my_sk: &Ed25519SK) -> Self {
+        let unix_secs = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        Credentials::Signature {
+            pubkey: my_sk.to_public(),
+            unix_secs,
+            signature: my_sk.sign(&unix_secs.to_be_bytes()),
+        }
+    }
 }
 
 /// Authentication response
