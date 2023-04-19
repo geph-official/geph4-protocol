@@ -1,6 +1,5 @@
 use std::{
     convert::TryInto,
-    sync::Arc,
     time::{Duration, SystemTime},
 };
 
@@ -9,8 +8,7 @@ use async_compat::CompatExt;
 use async_trait::async_trait;
 use bytes::Bytes;
 
-use melprot::NodeRpcClient;
-use nanorpc::{DynRpcTransport, JrpcRequest, JrpcResponse, RpcTransport};
+use nanorpc::{DynRpcTransport, RpcTransport};
 use rand::{seq::SliceRandom, Rng};
 use reqwest::{
     header::{HeaderMap, HeaderName},
@@ -18,30 +16,10 @@ use reqwest::{
 };
 use smol_str::SmolStr;
 
-use crate::binder::protocol::{AuthRequestV2, AuthResponseV2, Credentials};
-
 use super::protocol::{
-    box_decrypt, box_encrypt, AuthError, BinderClient, BlindToken, BridgeDescriptor,
-    ExitDescriptor, Level, MasterSummary, UserInfoV2,
+    box_decrypt, box_encrypt, AuthError, AuthRequest, AuthResponse, BinderClient, BlindToken,
+    BridgeDescriptor, ExitDescriptor, Level, MasterSummary, UserInfo,
 };
-
-/// The gibbername bound to a hash of the [`MasterSummary`]. Used to verify the summary response the binder server gives the client.
-const MASTER_SUMMARY_GIBBERNAME: &str = "retmev-peg";
-
-struct CustomRpcTransport {
-    binder_client: Arc<DynBinderClient>,
-}
-
-#[async_trait]
-impl RpcTransport for CustomRpcTransport {
-    type Error = anyhow::Error;
-
-    async fn call_raw(&self, req: JrpcRequest) -> Result<JrpcResponse, Self::Error> {
-        let resp = self.binder_client.reverse_proxy_melnode(req).await??;
-        // log::info!("resp from CustomRpcTransport::call_raw = {:?}", resp);
-        Ok(resp)
-    }
-}
 
 /// A caching, intelligent binder client, generic over the precise mechanism used for caching.
 #[allow(clippy::type_complexity)]
@@ -51,6 +29,9 @@ pub struct CachedBinderClient {
 
     inner: Arc<DynBinderClient>,
     credentials: Credentials,
+
+    mizaru_free: mizaru::PublicKey,
+    mizaru_plus: mizaru::PublicKey,
 }
 
 impl CachedBinderClient {
@@ -60,12 +41,16 @@ impl CachedBinderClient {
         save_cache: impl Fn(&str, &[u8], Duration) + Send + Sync + 'static,
         inner: DynBinderClient,
         credentials: Credentials,
+        mizaru_free: mizaru::PublicKey,
+        mizaru_plus: mizaru::PublicKey,
     ) -> Self {
         Self {
             load_cache: Box::new(load_cache),
             save_cache: Box::new(save_cache),
             inner: Arc::new(inner),
             credentials,
+            mizaru_free,
+            mizaru_plus,
         }
     }
 
@@ -76,7 +61,6 @@ impl CachedBinderClient {
                 return Ok(summary);
             }
         }
-
         // load from the network
         let summary = self.inner.get_summary().await?;
 
@@ -259,19 +243,10 @@ impl CachedBinderClient {
 
     /// Obtains the long-term Mizaru public key of a level.
     async fn get_mizaru_pk(&self, level: Level) -> anyhow::Result<mizaru::PublicKey> {
-        let k = format!("mizaru_pk_{:?}", level);
-        if let Some(pk) = (self.load_cache)(&k) {
-            if let Ok(pk) = serde_json::from_slice(&pk) {
-                return Ok(pk);
-            }
+        match level {
+            Level::Free => Ok(self.mizaru_free.clone()),
+            Level::Plus => Ok(self.mizaru_plus.clone()),
         }
-        let pk = self.inner.get_mizaru_pk(level).await?;
-        (self.save_cache)(
-            &k,
-            &serde_json::to_vec(&pk)?,
-            Duration::from_secs(1_000_000),
-        );
-        Ok(pk)
     }
 }
 
