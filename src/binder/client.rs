@@ -49,7 +49,7 @@ pub struct CachedBinderClient {
     save_cache: Box<dyn Fn(&str, &[u8], Duration) + Send + Sync + 'static>,
 
     inner: Arc<DynBinderClient>,
-    credentials: Credentials,
+    get_creds: Box<dyn Fn() -> Credentials + Send + Sync + 'static>,
 
     mizaru_free: mizaru::PublicKey,
     mizaru_plus: mizaru::PublicKey,
@@ -61,7 +61,7 @@ impl CachedBinderClient {
         load_cache: impl Fn(&str) -> Option<Bytes> + Send + Sync + 'static,
         save_cache: impl Fn(&str, &[u8], Duration) + Send + Sync + 'static,
         inner: DynBinderClient,
-        credentials: Credentials,
+        get_creds: impl Fn() -> Credentials + Send + Sync + 'static,
         mizaru_free: mizaru::PublicKey,
         mizaru_plus: mizaru::PublicKey,
     ) -> Self {
@@ -69,7 +69,7 @@ impl CachedBinderClient {
             load_cache: Box::new(load_cache),
             save_cache: Box::new(save_cache),
             inner: Arc::new(inner),
-            credentials,
+            get_creds: Box::new(get_creds),
             mizaru_free,
             mizaru_plus,
         }
@@ -224,7 +224,7 @@ impl CachedBinderClient {
             let resp: AuthResponseV2 = match self
                 .inner
                 .authenticate_v2(AuthRequestV2 {
-                    credentials: self.credentials.clone(),
+                    credentials: (self.get_creds)(),
                     level,
                     epoch,
                     blinded_digest: blinded_digest.into(),
