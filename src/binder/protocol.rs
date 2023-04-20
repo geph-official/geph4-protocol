@@ -342,6 +342,7 @@ pub struct ExitDescriptor {
     pub country_code: SmolStr,
     pub city_code: SmolStr,
     pub direct_routes: Vec<BridgeDescriptor>,
+    #[serde(rename(serialize = "sosistab2_pk", deserialize = "sosistab2_pk"))]
     pub legacy_direct_sosistab_pk: x25519_dalek::PublicKey,
     pub allowed_levels: Vec<Level>,
     pub load: f64,
