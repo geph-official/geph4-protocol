@@ -327,7 +327,8 @@ pub struct BridgeDescriptor {
     pub is_direct: bool,
     pub protocol: SmolStr,
     pub endpoint: SocketAddr,
-    pub sosistab_key: Bytes,
+    #[serde(rename(serialize = "sosistab_key", deserialize = "sosistab_key"))]
+    pub cookie: Bytes,
     pub exit_hostname: SmolStr,
     pub alloc_group: SmolStr,
     pub update_time: u64,
