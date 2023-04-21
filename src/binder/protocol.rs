@@ -115,8 +115,15 @@ pub trait BinderProtocol {
     /// Legacy method for obtaining a captcha. Only supports PNG captchas. Will be deprecated in the future.
     async fn get_captcha(&self) -> Result<PngCaptcha, MiscFatalError>;
 
-    /// New method for obtaining captchas.
-    async fn get_captcha_v2(&self) -> Result<Captcha, MiscFatalError>;
+    /// New method for obtaining captchas. Returns an ID and a captcha.
+    async fn get_captcha_v2(&self) -> Result<(SmolStr, Captcha), MiscFatalError>;
+
+    /// Attempts to solve a captcha. If the solution is successful, then returns either the "real" ID and solution to pass to register, or a new captcha to solve. Otherwise fail. Failed captchas are entirely invalidated
+    async fn solve_captcha(
+        &self,
+        id: SmolStr,
+        soln: SmolStr,
+    ) -> Result<SolveCaptchaResp, MiscFatalError>;
 
     /// Registers a new user.
     /// NOTE: This is a legacy method, and will be deprecated later.
@@ -305,7 +312,14 @@ pub struct BlindToken {
     pub version: Option<SmolStr>,
 }
 
-/// All the possible captcha types.
+/// All the possible solve-captcha responses.
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug, Hash)]
+pub enum SolveCaptchaResp {
+    More(Captcha),
+    Done(SmolStr, SmolStr),
+}
+
+/// All the possible captchas.
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum Captcha {
     PngText(PngCaptcha),
