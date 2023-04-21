@@ -112,8 +112,11 @@ pub trait BinderProtocol {
     /// Validates a blind signature token, applying rate-limiting as appropriate
     async fn validate(&self, token: BlindToken) -> bool;
 
-    /// Obtains a unique captcha, for user registry.
-    async fn get_captcha(&self) -> Result<Captcha, MiscFatalError>;
+    /// Legacy method for obtaining a captcha. Only supports PNG captchas. Will be deprecated in the future.
+    async fn get_captcha(&self) -> Result<PngCaptcha, MiscFatalError>;
+
+    /// New method for obtaining captchas.
+    async fn get_captcha_v2(&self) -> Result<Captcha, MiscFatalError>;
 
     /// Registers a new user.
     /// NOTE: This is a legacy method, and will be deprecated later.
@@ -302,10 +305,16 @@ pub struct BlindToken {
     pub version: Option<SmolStr>,
 }
 
-/// A captcha.
+/// All the possible captcha types.
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug, Hash)]
+pub enum Captcha {
+    PngText(PngCaptcha),
+}
+
+/// A PNG captcha.
 #[serde_as]
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug, Hash)]
-pub struct Captcha {
+pub struct PngCaptcha {
     pub captcha_id: SmolStr,
     #[serde_as(as = "serde_with::base64::Base64")]
     pub png_data: Bytes,

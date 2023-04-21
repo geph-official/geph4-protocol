@@ -16,12 +16,10 @@ use reqwest::{
     header::{HeaderMap, HeaderName},
     StatusCode,
 };
-use smol_str::SmolStr;
 
 use super::protocol::{
-    box_decrypt, box_encrypt, AuthError, AuthRequest, AuthRequestV2, AuthResponse, AuthResponseV2,
-    BinderClient, BlindToken, BridgeDescriptor, Credentials, ExitDescriptor, Level, MasterSummary,
-    UserInfo, UserInfoV2,
+    box_decrypt, box_encrypt, AuthError, AuthRequestV2, AuthResponseV2, BinderClient, BlindToken,
+    BridgeDescriptor, Credentials, ExitDescriptor, Level, MasterSummary, UserInfoV2,
 };
 
 /// The gibbername bound to a hash of the [`MasterSummary`]. Used to verify the summary response the binder server gives the client.
