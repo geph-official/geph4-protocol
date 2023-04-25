@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use smol_str::SmolStr;
 use std::{
+    collections::BTreeMap,
     net::SocketAddr,
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -187,21 +188,17 @@ pub struct AuthRequestV2 {
     pub blinded_digest: Bytes,
 }
 
-type Username = SmolStr;
-type Password = SmolStr;
-type Signature = Vec<u8>;
-
 /// The different authentications methods available in AuthRequestV2
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, Eq, PartialEq)]
 pub enum Credentials {
     Password {
-        username: Username,
-        password: Password,
+        username: SmolStr,
+        password: SmolStr,
     },
     Signature {
         pubkey: Ed25519PK,
         unix_secs: u64,
-        signature: Signature,
+        signature: Vec<u8>,
     },
 }
 
@@ -360,26 +357,19 @@ impl MasterSummary {
     /// Gets a hash of the [`MasterSummary`].
     /// This clears out dynamically changing fields like `load` and `direct_route` in each exit descriptor before hashing.
     pub fn clean_hash(&self) -> blake3::Hash {
-        let mut clean_exits: Vec<ExitDescriptor> = self
-            .exits
-            .iter()
-            .map(|exit| {
-                let mut exit = exit.clone();
-                exit.direct_routes.clear();
-                exit.load = 0.0;
-                exit
-            })
-            .collect();
+        let mut exit_tree: BTreeMap<String, (Vec<u8>, Vec<u8>)> = BTreeMap::new();
 
-        // We sort alphabetically by hostname here to ensure that the generated hash is consistent, since the DB response may not guarantee ordering.
-        clean_exits.sort_by(|a, b| a.hostname.cmp(&b.hostname));
+        for exit in &self.exits {
+            exit_tree.insert(
+                exit.hostname.clone().into(),
+                (
+                    exit.signing_key.as_bytes().to_vec(),
+                    exit.sosistab_e2e_pk.as_bytes().to_vec(),
+                ),
+            );
+        }
 
-        let summary = MasterSummary {
-            exits: clean_exits,
-            bad_countries: self.bad_countries.clone(),
-        };
-
-        blake3::hash(&summary.stdcode())
+        blake3::hash(&exit_tree.stdcode())
     }
 }
 
