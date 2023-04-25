@@ -327,7 +327,7 @@ pub struct BridgeDescriptor {
     pub is_direct: bool,
     pub protocol: SmolStr,
     pub endpoint: SocketAddr,
-    #[serde(rename(serialize = "sosistab_key", deserialize = "sosistab_key"))]
+    #[serde(rename = "sosistab_key")]
     pub cookie: Bytes,
     pub exit_hostname: SmolStr,
     pub alloc_group: SmolStr,
@@ -343,8 +343,8 @@ pub struct ExitDescriptor {
     pub country_code: SmolStr,
     pub city_code: SmolStr,
     pub direct_routes: Vec<BridgeDescriptor>,
-    #[serde(rename(serialize = "sosistab2_pk", deserialize = "sosistab2_pk"))]
-    pub legacy_direct_sosistab_pk: x25519_dalek::PublicKey,
+    #[serde(rename = "legacy_direct_sosistab_pk")]
+    pub sosistab_e2e_pk: x25519_dalek::PublicKey,
     pub allowed_levels: Vec<Level>,
     pub load: f64,
 }
