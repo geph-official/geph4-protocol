@@ -363,8 +363,8 @@ impl MasterSummary {
             exit_tree.insert(
                 exit.hostname.clone().into(),
                 (
-                    hex::decode(exit.signing_key).unwrap(),
-                    hex::decode(exit.sosistab_e2e_pk.as_bytes()).unwrap(),
+                    hex::encode(exit.signing_key).into(),
+                    hex::encode(exit.sosistab_e2e_pk.as_bytes()).into(),
                 ),
             );
         }
