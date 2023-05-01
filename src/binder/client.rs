@@ -34,6 +34,7 @@ impl RpcTransport for CustomRpcTransport {
     type Error = anyhow::Error;
 
     async fn call_raw(&self, req: JrpcRequest) -> Result<JrpcResponse, Self::Error> {
+        log::debug!("calling method = {}, args = {:?}", req.method, req.params);
         let resp = self.binder_client.reverse_proxy_melnode(req).await??;
         // log::info!("resp from CustomRpcTransport::call_raw = {:?}", resp);
         Ok(resp)
