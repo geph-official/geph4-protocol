@@ -10,12 +10,15 @@ use async_trait::async_trait;
 use bytes::Bytes;
 
 use melprot::NodeRpcClient;
+use mini_moka::sync::{Cache, CacheBuilder};
 use nanorpc::{DynRpcTransport, JrpcRequest, JrpcResponse, RpcTransport};
 use rand::{seq::SliceRandom, Rng};
 use reqwest::{
     header::{HeaderMap, HeaderName},
     StatusCode,
 };
+use stdcode::StdcodeSerializeExt;
+use tmelcrypt::{HashVal, Hashable};
 
 use super::protocol::{
     box_decrypt, box_encrypt, AuthError, AuthRequestV2, AuthResponseV2, BinderClient, BlindToken,
@@ -27,6 +30,7 @@ const MASTER_SUMMARY_GIBBERNAME: &str = "jermeb-beg";
 
 struct CustomRpcTransport {
     binder_client: Arc<DynBinderClient>,
+    cache: Cache<HashVal, JrpcResponse>,
 }
 
 #[async_trait]
@@ -34,9 +38,14 @@ impl RpcTransport for CustomRpcTransport {
     type Error = anyhow::Error;
 
     async fn call_raw(&self, req: JrpcRequest) -> Result<JrpcResponse, Self::Error> {
+        let cache_key = (&req.method, &req.params).stdcode().hash();
+        if let Some(mut val) = self.cache.get(&cache_key) {
+            val.id = req.id;
+            return Ok(val);
+        }
         log::debug!("calling method = {}, args = {:?}", req.method, req.params);
         let resp = self.binder_client.reverse_proxy_melnode(req).await??;
-        // log::info!("resp from CustomRpcTransport::call_raw = {:?}", resp);
+        self.cache.insert(cache_key, resp.clone());
         Ok(resp)
     }
 }
@@ -117,6 +126,9 @@ impl CachedBinderClient {
             melstructs::NetID::Mainnet,
             NodeRpcClient::from(CustomRpcTransport {
                 binder_client: self.inner.clone(),
+                cache: CacheBuilder::new(100)
+                    .time_to_live(Duration::from_secs(5))
+                    .build(),
             }),
         );
         // you must load the client with a hardcoded known height + block hash before it can verify anything
