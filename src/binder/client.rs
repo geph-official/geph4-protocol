@@ -17,6 +17,7 @@ use reqwest::{
     header::{HeaderMap, HeaderName},
     StatusCode,
 };
+use smol::lock::Semaphore;
 use stdcode::StdcodeSerializeExt;
 use tmelcrypt::{HashVal, Hashable};
 
@@ -61,6 +62,8 @@ pub struct CachedBinderClient {
 
     mizaru_free: mizaru::PublicKey,
     mizaru_plus: mizaru::PublicKey,
+
+    semaph: Semaphore,
 }
 
 impl CachedBinderClient {
@@ -80,11 +83,14 @@ impl CachedBinderClient {
             get_creds: Box::new(get_creds),
             mizaru_free,
             mizaru_plus,
+            semaph: Semaphore::new(1),
         }
     }
 
     /// Obtains the overall network summary.
     pub async fn get_summary(&self) -> anyhow::Result<MasterSummary> {
+        let _lock = self.semaph.acquire().await;
+
         if let Some(summary) = (self.load_cache)("summary") {
             if let Ok(summary) = serde_json::from_slice(&summary) {
                 return Ok(summary);
@@ -162,33 +168,6 @@ impl CachedBinderClient {
         exits.get(0).cloned().context("no exits found at all lol")
     }
 
-    /// A function for obtaining a list of bridges.
-    pub async fn get_bridges(
-        &self,
-        destination_exit: &str,
-        force_fresh: bool,
-    ) -> anyhow::Result<Vec<BridgeDescriptor>> {
-        let bridge_key = format!("bridges {}", destination_exit);
-        let auth = self.get_auth_token().await?.1;
-        if !force_fresh {
-            if let Some(bridges) = (self.load_cache)(&bridge_key) {
-                if let Ok(bridges) = serde_json::from_slice(&bridges) {
-                    return Ok(bridges);
-                }
-            }
-        }
-        let bridges = self
-            .inner
-            .get_bridges(auth, destination_exit.into())
-            .await?;
-        (self.save_cache)(
-            &bridge_key,
-            &serde_json::to_vec(&bridges)?,
-            Duration::from_secs(600),
-        );
-        Ok(bridges)
-    }
-
     /// A function for obtaining a list of v2 bridges.
     pub async fn get_bridges_v2(
         &self,
@@ -196,7 +175,6 @@ impl CachedBinderClient {
         force_fresh: bool,
     ) -> anyhow::Result<Vec<BridgeDescriptor>> {
         let bridge_key = format!("bridgesv2 {}", destination_exit);
-        let auth = self.get_auth_token().await?.1;
         if !force_fresh {
             if let Some(bridges) = (self.load_cache)(&bridge_key) {
                 if let Ok(bridges) = serde_json::from_slice(&bridges) {
@@ -204,6 +182,8 @@ impl CachedBinderClient {
                 }
             }
         }
+        let auth = self.get_auth_token().await?.1;
+        let _lock = self.semaph.acquire().await;
         let bridges = self
             .inner
             .get_bridges_v2(auth, destination_exit.into())
@@ -218,6 +198,7 @@ impl CachedBinderClient {
 
     /// Obtains an authentication token.
     pub async fn get_auth_token(&self) -> anyhow::Result<(UserInfoV2, BlindToken)> {
+        let _lock = self.semaph.acquire().await;
         if let Some(auth_token) = (self.load_cache)("auth_token") {
             if let Ok(auth_token) = serde_json::from_slice(&auth_token) {
                 return Ok(auth_token);
