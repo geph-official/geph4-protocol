@@ -105,7 +105,7 @@ impl CachedBinderClient {
         (self.save_cache)(
             "summary",
             &serde_json::to_vec(&summary)?,
-            Duration::from_secs(3600),
+            Duration::from_secs(3600 * 12),
         );
         Ok(summary)
     }
@@ -148,6 +148,7 @@ impl CachedBinderClient {
     /// A helper function for obtaining the closest exit.
     pub async fn get_closest_exit(&self, destination_exit: &str) -> anyhow::Result<ExitDescriptor> {
         let token = self.get_auth_token().await?.1;
+        log::debug!("token in get_closest_exit: {:?}", token);
         let summary = self.get_summary().await?;
         let mut exits = summary.exits;
         exits.retain(|e| e.allowed_levels.contains(&token.level));
