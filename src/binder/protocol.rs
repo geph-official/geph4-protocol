@@ -31,7 +31,7 @@ pub fn verify_pk_auth(pk: Ed25519PK, unix_secs: u64, sig: &[u8]) -> bool {
     }
     pk.verify(
         blake3::keyed_hash(PUBKEY_AUTH_COOKIE, &unix_secs.to_be_bytes()).as_bytes(),
-        &sig,
+        sig,
     )
 }
 
@@ -212,10 +212,11 @@ impl Credentials {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs();
+        let to_sign = blake3::keyed_hash(PUBKEY_AUTH_COOKIE, &unix_secs.to_be_bytes());
         Credentials::Signature {
             pubkey: my_sk.to_public(),
             unix_secs,
-            signature: my_sk.sign(&unix_secs.to_be_bytes()),
+            signature: my_sk.sign(to_sign.as_bytes()),
         }
     }
 }
@@ -391,5 +392,21 @@ mod tests {
         let (decrypted, purported_alice_pk) = box_decrypt(&encrypted, bob_sk).unwrap();
         assert_eq!(test_string, &decrypted[..]);
         assert_eq!(purported_alice_pk, alice_pk);
+    }
+
+    #[test]
+    fn pk_auth() {
+        let sk = Ed25519SK::generate();
+        let cred = Credentials::new_keypair(&sk);
+        match cred {
+            Credentials::Password { .. } => todo!(),
+            Credentials::Signature {
+                pubkey,
+                unix_secs,
+                signature,
+            } => {
+                assert!(verify_pk_auth(pubkey, unix_secs, &signature));
+            }
+        }
     }
 }
