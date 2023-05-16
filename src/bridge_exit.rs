@@ -57,9 +57,10 @@ pub async fn serve_bridge_exit<R: RpcService>(
                 let correct_mac = blake3::keyed_hash(mac_key.as_bytes(), &plain);
                 if correct_mac != blake3::Hash::from(mac) {
                     anyhow::bail!(
-                        "MAC is wrong (given {:?}, recalculated {:?}, plain {:?})",
+                        "MAC is wrong (given {:?}, recalculated {:?}, mac key {:?}, plain {:?})",
                         blake3::Hash::from(mac),
                         correct_mac,
+                        mac_key,
                         plain
                     )
                 }
@@ -85,6 +86,12 @@ impl RpcTransport for BridgeExitTransport {
         let timestamp = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
         let mac_key = blake3::keyed_hash(&self.key, &timestamp.to_be_bytes());
         let mac = blake3::keyed_hash(mac_key.as_bytes(), &plain_vec);
+        log::debug!(
+            "sending request with mac {:?}, mac_key {:?}, plain {:?}",
+            mac,
+            mac_key,
+            String::from_utf8_lossy(&plain_vec)
+        );
         let to_send = stdcode::serialize(&(mac.as_bytes(), timestamp, plain_vec))?;
         let socket = UdpSocket::bind("0.0.0.0:0").await?;
         socket.send_to(&to_send, self.dest).await?;
