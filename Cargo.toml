@@ -2,7 +2,7 @@
 name = "geph4-protocol"
 version = "0.16.6"
 authors = ["nullchinchilla <nullchinchilla@pm.me>"]
-edition = "2018"
+edition = "2021"
 description="geph4 protocol helpers"
 license="GPL-3.0-only"
 

@@ -56,7 +56,12 @@ pub async fn serve_bridge_exit<R: RpcService>(
                 let mac_key = blake3::keyed_hash(&key, &timestamp.to_be_bytes());
                 let correct_mac = blake3::keyed_hash(mac_key.as_bytes(), &plain);
                 if correct_mac != blake3::Hash::from(mac) {
-                    anyhow::bail!("MAC is wrong")
+                    anyhow::bail!(
+                        "MAC is wrong (given {:?}, recalculated {:?}, plain {:?})",
+                        blake3::Hash::from(mac),
+                        correct_mac,
+                        plain
+                    )
                 }
                 let request: JrpcRequest = serde_json::from_slice(&plain)?;
                 let response = service.respond_raw(request).await;
