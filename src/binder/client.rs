@@ -111,7 +111,7 @@ impl CachedBinderClient {
         (self.save_cache)(
             "summary",
             &serde_json::to_vec(&summary)?,
-            Duration::from_secs(3600 * 12),
+            Duration::from_secs(600),
         );
         Ok(summary)
     }
