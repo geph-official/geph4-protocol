@@ -167,7 +167,12 @@ pub trait BinderProtocol {
 
     /// Reverse proxies requests to melnode
     async fn reverse_proxy_melnode(&self, req: JrpcRequest) -> Result<JrpcResponse, RpcError>;
+
+    /// Adds a specific metric datapoint to the db
+    async fn add_metric(&self, session: i64, data: serde_json::Value)
+        -> Result<(), MiscFatalError>;
 }
+
 /// Authentication request
 #[serde_as]
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, Eq, PartialEq)]
