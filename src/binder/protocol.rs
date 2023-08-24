@@ -110,6 +110,9 @@ pub trait BinderProtocol {
     /// Authenticates a 24-hour-long session for a user.
     async fn authenticate_v2(&self, auth_req: AuthRequestV2) -> Result<AuthResponseV2, AuthError>;
 
+    /// Retrieves a login url
+    async fn get_login_url(&self, credentials: Credentials) -> Result<String, AuthError>;
+
     /// Validates a blind signature token, applying rate-limiting as appropriate
     async fn validate(&self, token: BlindToken) -> bool;
 
