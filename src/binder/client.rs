@@ -87,6 +87,13 @@ impl CachedBinderClient {
         }
     }
 
+    pub async fn add_metric(&self, session: i64, data: serde_json::Value) -> anyhow::Result<()> {
+        match self.inner.add_metric(session, data.clone()).await {
+            Ok(_) => Ok(()),
+            Err(e) => anyhow::bail!("failed to add metric: {}", e),
+        }
+    }
+
     /// Obtains the overall network summary.
     pub async fn get_summary(&self) -> anyhow::Result<MasterSummary> {
         let _lock = self.semaph.acquire().await;
