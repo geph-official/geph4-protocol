@@ -171,6 +171,9 @@ pub trait BinderProtocol {
     /// Adds a specific metric datapoint to the db
     async fn add_metric(&self, session: i64, data: serde_json::Value)
         -> Result<(), MiscFatalError>;
+
+    /// Retrieves user info
+    async fn get_user_info(&self, auth_req: Credentials) -> Result<UserInfoV2, MiscFatalError>;
 }
 
 /// Authentication request
