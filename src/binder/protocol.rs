@@ -173,7 +173,7 @@ pub trait BinderProtocol {
         -> Result<(), MiscFatalError>;
 
     /// Retrieves user info
-    async fn get_user_info(&self, auth_req: Credentials) -> Result<UserInfoV2, AuthError>;
+    async fn get_user_info(&self, auth_req: Credentials) -> Result<UserInfoV2, MiscFatalError>;
 }
 
 /// Authentication request
@@ -327,6 +327,8 @@ pub enum MiscFatalError {
     Database(SmolStr),
     #[error("backend network error: {0}")]
     BadNet(SmolStr),
+    #[error("authentication error: {0}")]
+    Auth(AuthError),
 }
 
 /// Bridge descriptor
