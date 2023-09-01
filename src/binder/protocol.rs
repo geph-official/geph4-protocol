@@ -173,7 +173,7 @@ pub trait BinderProtocol {
         -> Result<(), MiscFatalError>;
 
     /// Retrieves user info
-    async fn get_user_info(&self, auth_req: Credentials) -> Result<UserInfoV2, MiscFatalError>;
+    async fn get_user_info(&self, auth_req: Credentials) -> Result<UserInfoV2, AuthError>;
 }
 
 /// Authentication request
