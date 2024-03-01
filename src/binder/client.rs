@@ -1,4 +1,4 @@
-use std::{convert::TryInto, time::Duration};
+use std::time::Duration;
 
 use async_compat::CompatExt;
 use async_trait::async_trait;
@@ -27,7 +27,7 @@ impl RpcTransport for E2eeHttpTransport {
         &self,
         req: nanorpc::JrpcRequest,
     ) -> Result<nanorpc::JrpcResponse, Self::Error> {
-        let eph_sk = x25519_dalek::StaticSecret::new(rand::thread_rng());
+        let eph_sk = x25519_dalek::StaticSecret::random_from_rng(rand::thread_rng());
         let encrypted_req =
             box_encrypt(&serde_json::to_vec(&req)?, eph_sk.clone(), self.binder_lpk);
         let resp = self

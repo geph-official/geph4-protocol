@@ -12,12 +12,12 @@ license="GPL-3.0-only"
 
 acidjson= "0.1.2"
 anyhow = "1.0.65"
-async-net = "1.7.0"
+async-net = "2.0.0"
 bincode = "1.3.3"
 bytes = { version = "1.2.1", features = ["serde"] }
-ed25519-dalek={ version = "1.0.1", features = ["serde"] }
-event-listener= "2.5.3"
-fastrand = "1.8.0"
+ed25519-dalek={ version = "2.1.1", features = ["serde"] }
+event-listener= "5.1.0"
+fastrand = "2.0.1"
 futures-util= "0.3.24"
 geph4-aioutils = "0.1.3"
 # geph4-binder-transport = "0.2"
@@ -26,32 +26,32 @@ hex = "0.4.3"
 log = "0.4.17"
 mizaru = "0.1.3"
 once_cell= "1.15.0"
-parking_lot = { version = "0.11.2", features = ["serde"] }
-rand= "0.7.3"
+parking_lot = { version = "0.12.1", features = ["serde"] }
+rand= "0.8.5"
 regex= "1.6.0"
 rsa-fdh = "0.5.0"
 serde={ version = "1.0.145", features = ["derive"] }
 serde_json = "1.0.85"
-sha2 = "0.9.9"
-smol= "1.2.5"
-smolscale= "0.3.41"
+sha2 = "0.10.8"
+smol= "2.0.0"
+smolscale= "0.4.4"
 smol-timeout = "0.6.0"
 #sosistab={path="../sosistab"}
-strsim = "0.10.0"
+strsim = "0.11.0"
 tap= "1.0.1"
 
-x25519-dalek={ version = "1.2.0", features = ["serde"], default-features=false }
+x25519-dalek={ version = "2.0.1", features = ["serde", "static_secrets"] }
 nanorpc = "0.1.7"
 async-trait = "0.1.57"
 thiserror = "1.0.37"
-smol_str = { version = "0.1.23", features = ["serde"] }
+smol_str = { version = "0.2.1", features = ["serde"] }
 stdcode = "0.1.10"
-base64 = "0.13.0"
-serde_with = {version="2.0.1", features=["base64", "hex"]}
+base64 = "0.21.7"
+serde_with = {version= "3.6.1", features=["base64", "hex"]}
 reqwest = "0.11.12"
 async-compat = "0.2.1"
 blake3 = "1.3.1"
-chacha20poly1305 = "0.7"
+chacha20poly1305 = "0.10.1"
 arrayref = "0.3.6"
 rsa = {version = "0.3", features=["serde"]}
 native-tls = {version="0.2", features=["vendored"]}
