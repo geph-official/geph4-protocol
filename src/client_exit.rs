@@ -1,8 +1,8 @@
-use async_net::Ipv4Addr;
 use async_trait::async_trait;
 use nanorpc::nanorpc_derive;
 use serde::{Deserialize, Serialize};
 use smol_str::SmolStr;
+use std::net::Ipv4Addr;
 
 use crate::binder::protocol::BlindToken;
 

@@ -1,10 +1,11 @@
 use std::{
+    net::SocketAddr,
     sync::Arc,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use anyhow::Context;
-use async_net::{SocketAddr, UdpSocket};
+use async_net::UdpSocket;
 use async_trait::async_trait;
 use bytes::Bytes;
 use futures_util::TryFutureExt;

@@ -1,5 +1,5 @@
-use async_net::SocketAddr;
 use geph4_protocol::bridge_exit::{BridgeExitClient, BridgeExitTransport, LegacyProtocol};
+use std::net::SocketAddr;
 
 fn main() -> anyhow::Result<()> {
     smol::future::block_on(async {

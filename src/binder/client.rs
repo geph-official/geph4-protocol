@@ -1,14 +1,10 @@
-use std::{convert::TryInto, time::Duration};
-
-use async_compat::CompatExt;
 use async_trait::async_trait;
-
 use nanorpc::RpcTransport;
-
 use reqwest::{
     header::{HeaderMap, HeaderName},
     StatusCode,
 };
+use std::{convert::TryInto, time::Duration};
 
 use super::protocol::{box_decrypt, box_encrypt};
 
@@ -27,7 +23,7 @@ impl RpcTransport for E2eeHttpTransport {
         &self,
         req: nanorpc::JrpcRequest,
     ) -> Result<nanorpc::JrpcResponse, Self::Error> {
-        let eph_sk = x25519_dalek::StaticSecret::new(rand::thread_rng());
+        let eph_sk = x25519_dalek::StaticSecret::random();
         let encrypted_req =
             box_encrypt(&serde_json::to_vec(&req)?, eph_sk.clone(), self.binder_lpk);
         let resp = self
@@ -35,12 +31,11 @@ impl RpcTransport for E2eeHttpTransport {
             .post(&self.endpoint)
             .body(encrypted_req)
             .send()
-            .compat()
             .await?;
         if resp.status() != StatusCode::OK {
             anyhow::bail!("non-200 status: {}", resp.status());
         }
-        let encrypted_resp = resp.bytes().compat().await?;
+        let encrypted_resp = resp.bytes().await?;
         let (resp, _) = box_decrypt(&encrypted_resp, eph_sk)?;
         Ok(serde_json::from_slice(&resp)?)
     }
@@ -74,29 +69,25 @@ impl E2eeHttpTransport {
 
 #[cfg(test)]
 mod tests {
-    use async_compat::CompatExt;
     use reqwest::header::HeaderMap;
 
     #[test]
     fn reqwest_domain_front() {
-        smolscale::block_on(
-            async move {
-                let client = reqwest::ClientBuilder::new()
-                    .default_headers({
-                        let mut hh = HeaderMap::new();
-                        hh.insert("host", "loving-bell-981479.netlify.app".parse().unwrap());
-                        hh
-                    })
-                    .build()
-                    .unwrap();
-                let resp = client
-                    .get("https://www.netlify.com/v4")
-                    .send()
-                    .await
-                    .unwrap();
-                dbg!(resp);
-            }
-            .compat(),
-        );
+        smolscale::block_on(async move {
+            let client = reqwest::ClientBuilder::new()
+                .default_headers({
+                    let mut hh = HeaderMap::new();
+                    hh.insert("host", "loving-bell-981479.netlify.app".parse().unwrap());
+                    hh
+                })
+                .build()
+                .unwrap();
+            let resp = client
+                .get("https://www.netlify.com/v4")
+                .send()
+                .await
+                .unwrap();
+            dbg!(resp);
+        });
     }
 }
