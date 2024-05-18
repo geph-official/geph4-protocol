@@ -347,7 +347,7 @@ pub struct BridgeDescriptor {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ExitDescriptor {
     pub hostname: SmolStr,
-    pub signing_key: ed25519_dalek::SigningKey,
+    pub signing_key: ed25519_dalek::VerifyingKey,
     pub country_code: SmolStr,
     pub city_code: SmolStr,
     pub direct_routes: Vec<BridgeDescriptor>,
