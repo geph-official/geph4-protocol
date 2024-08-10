@@ -350,7 +350,7 @@ pub struct BridgeDescriptor {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ExitDescriptor {
     pub hostname: SmolStr,
-    pub signing_key: ed25519_dalek::PublicKey,
+    pub signing_key: ed25519_dalek::VerifyingKey,
     pub country_code: SmolStr,
     pub city_code: SmolStr,
     pub direct_routes: Vec<BridgeDescriptor>,
@@ -394,9 +394,9 @@ mod tests {
     #[test]
     fn box_encryption() {
         let test_string = b"hello world";
-        let alice_sk = x25519_dalek::StaticSecret::new(rand::thread_rng());
+        let alice_sk = x25519_dalek::StaticSecret::random_from_rng(rand::thread_rng());
         let alice_pk = x25519_dalek::PublicKey::from(&alice_sk);
-        let bob_sk = x25519_dalek::StaticSecret::new(rand::thread_rng());
+        let bob_sk = x25519_dalek::StaticSecret::random_from_rng(rand::thread_rng());
         let bob_pk = x25519_dalek::PublicKey::from(&bob_sk);
         let encrypted = box_encrypt(test_string, alice_sk, bob_pk);
         let (decrypted, purported_alice_pk) = box_decrypt(&encrypted, bob_sk).unwrap();
