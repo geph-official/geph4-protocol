@@ -1,6 +1,6 @@
 [package]
 name = "geph4-protocol"
-version = "0.19.0-alpha.3"
+version = "0.19.0-alpha.4"
 authors = ["nullchinchilla <nullchinchilla@pm.me>"]
 edition = "2021"
 description="geph4 protocol helpers"
